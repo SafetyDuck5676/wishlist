@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Wishlist</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c232d;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --border: #2a323d;
+    --accent: #f5a623;
+    --accent-soft: rgba(245, 166, 35, 0.15);
+    --danger: #f0616d;
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --panel-2: #f0f2f5;
+    --text: #1a2028;
+    --muted: #667180;
+    --border: #e0e4ea;
+    --accent: #e08b00;
+    --accent-soft: rgba(224, 139, 0, 0.12);
+    --danger: #d33b48;
+    --shadow: 0 6px 20px rgba(20, 30, 45, 0.12);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .topbar h1 {
+    margin: 0;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+  .btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn-primary {
+    background: var(--accent);
+    color: #1a1200;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 22px 20px 64px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .control {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+  .control[type="search"] { flex: 1 1 180px; min-width: 160px; }
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, border-color 0.2s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card-media { aspect-ratio: 4 / 3; background: var(--panel-2); overflow: hidden; }
+  .card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-img.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .card-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .card-title { margin: 0; font-size: 1rem; line-height: 1.3; }
+  .card-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 0.95rem; }
+  .price { font-weight: 700; color: var(--accent); }
+  .store { color: var(--muted); font-size: 0.85rem; }
+  .stars { letter-spacing: 2px; color: var(--muted); font-size: 1.05rem; }
+  .star.on { color: var(--accent); }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge {
+    font-size: 0.75rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid transparent;
+  }
+  .tag {
+    font-size: 0.75rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .note { margin: 0; font-size: 0.9rem; color: var(--text); opacity: 0.9; white-space: pre-wrap; }
+  .card-link { color: var(--accent); font-size: 0.85rem; text-decoration: none; }
+  .card-link:hover { text-decoration: underline; }
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 16px;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+  }
+  #test-output { display: none; }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    overflow: auto;
+    z-index: 50;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 520px;
+    padding: 22px;
+  }
+  .modal-title { margin: 0 0 14px; font-size: 1.15rem; }
+  .modal-form { display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field-label { font-size: 0.8rem; color: var(--muted); }
+  .field-input {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    width: 100%;
+  }
+  textarea.field-input { min-height: 84px; resize: vertical; }
+  .field-input:focus { outline: none; border-color: var(--accent); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .card-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .btn-sm { padding: 5px 10px; font-size: 0.8rem; border-radius: 8px; }
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .auth-user { color: var(--muted); font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reserve { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .reserve-label { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+  .setup { max-width: 720px; }
+  .setup-note { color: var(--muted); font-size: 0.9rem; }
+  .setup-steps { margin: 8px 0 16px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+  .code-block { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .code-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: var(--panel-2); }
+  .code-title { font-size: 0.82rem; color: var(--muted); }
+  .code {
+    margin: 0;
+    padding: 12px;
+    background: #0b0e13;
+    color: #c9d4e0;
+    font-family: "Consolas", "SFMono-Regular", monospace;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    overflow: auto;
+    max-height: 320px;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>Вишлист</h1>
+  <div class="topbar-actions">
+    <button id="add-btn" class="btn btn-primary" type="button">Добавить</button>
+    <span id="auth-slot"></span>
+    <button id="theme-toggle" class="btn" type="button">Тема</button>
+    <button id="setup-btn" class="btn" type="button">Настройка</button>
+  </div>
+</header>
+<main class="wrap">
+  <div id="controls"></div>
+  <div id="list" class="grid"></div>
+</main>
+<div id="modal-root"></div>
+<div id="setup-root"></div>
+<div id="test-output"></div>
+<script id="app">
+/* ===== Конфигурация Supabase =====
+   Вставьте сюда Project URL и anon public key из вашего проекта Supabase
+   (Settings → API). Пока поля пусты — приложение работает в демо-режиме
+   на localStorage. */
+const SUPABASE_CONFIG = {
+  url: '',
+  key: '',
+};
+
+/* ===== Модель айтема ===== */
+function statusFromRating(rating) {
+  const r = Math.max(0, Math.min(5, parseInt(rating, 10) || 0));
+  if (r === 5) return 'очень хочу';
+  if (r >= 3) return 'хочу';
+  if (r >= 1) return 'если что';
+  return 'без оценки';
+}
+
+function normalizeItem(raw) {
+  const src = raw || {};
+  let rating = parseInt(src.rating, 10);
+  if (!Number.isFinite(rating)) rating = 0;
+  rating = Math.max(0, Math.min(5, rating));
+  const str = (v) => (v == null ? null : String(v));
+  return {
+    id: src.id || newId(),
+    title: str(src.title),
+    url: str(src.url),
+    image_url: str(src.image_url),
+    price: str(src.price),
+    store: str(src.store),
+    rating,
+    note: str(src.note),
+    category: str(src.category),
+    created_at: src.created_at || new Date().toISOString(),
+  };
+}
+
+function newId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-' + Math.random().toString(36).slice(2);
+}
+
+/* ===== Адаптер хранилища ===== */
+class LocalStore {
+  constructor() {
+    this.itemsKey = 'wishlist.items';
+    this.resKey = 'wishlist.reservations';
+    this.userKey = 'wishlist.user';
+  }
+  _read(key, def) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : def;
+    } catch (e) {
+      return def;
+    }
+  }
+  _write(key, val) {
+    localStorage.setItem(key, JSON.stringify(val));
+  }
+  async listItems() {
+    return this._read(this.itemsKey, []).map(normalizeItem);
+  }
+  async saveItem(item) {
+    const items = this._read(this.itemsKey, []);
+    const norm = normalizeItem(item);
+    const idx = items.findIndex((x) => x.id === norm.id);
+    if (idx >= 0) items[idx] = norm;
+    else items.push(norm);
+    this._write(this.itemsKey, items);
+    return norm;
+  }
+  async deleteItem(id) {
+    this._write(this.itemsKey, this._read(this.itemsKey, []).filter((x) => x.id !== id));
+  }
+  async listReservations() {
+    return this._read(this.resKey, []);
+  }
+  async setReservation(item_id, user_id, name) {
+    const list = this._read(this.resKey, []);
+    if (list.some((r) => r.item_id === item_id)) return;
+    list.push({ item_id, user_id, name });
+    this._write(this.resKey, list);
+  }
+  async clearReservation(item_id) {
+    this._write(this.resKey, this._read(this.resKey, []).filter((r) => r.item_id !== item_id));
+  }
+  async currentUser() {
+    return this._read(this.userKey, null);
+  }
+}
+
+function createStore() {
+  if (useSupabase(SUPABASE_CONFIG)) {
+    supabaseClient = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
+    return new SupabaseStore(supabaseClient);
+  }
+  return new LocalStore();
+}
+
+/* ===== Supabase ===== */
+function useSupabase(cfg) {
+  return Boolean(cfg && cfg.url && cfg.key);
+}
+
+let supabaseClient = null;
+
+class SupabaseStore {
+  constructor(client) {
+    this.client = client;
+  }
+  async listItems() {
+    const { data, error } = await this.client.from('items').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(normalizeItem);
+  }
+  async saveItem(item) {
+    const norm = normalizeItem(item);
+    const { error } = await this.client.from('items').upsert(norm);
+    if (error) throw error;
+    return norm;
+  }
+  async deleteItem(id) {
+    const { error } = await this.client.from('items').delete().eq('id', id);
+    if (error) throw error;
+  }
+  async listReservations() {
+    const { data, error } = await this.client.from('reservations').select('item_id,user_id,name');
+    if (error) throw error;
+    return data || [];
+  }
+  async setReservation(item_id, user_id, name) {
+    const { error } = await this.client.from('reservations').insert({ item_id, user_id, name });
+    if (error) throw error;
+  }
+  async clearReservation(item_id) {
+    const { error } = await this.client.from('reservations').delete().eq('item_id', item_id);
+    if (error) throw error;
+  }
+  async currentUser() {
+    const { data } = await this.client.auth.getUser();
+    const u = data && data.user;
+    return u ? { id: u.id, name: displayNameOf(u.email) } : null;
+  }
+}
+
+function displayNameOf(email) {
+  const s = String(email || '');
+  const at = s.indexOf('@');
+  return at > 0 ? s.slice(0, at) : s;
+}
+
+function signInWithEmail(email) {
+  if (!supabaseClient) return Promise.resolve();
+  const redirectTo = typeof location !== 'undefined' ? location.origin + location.pathname : undefined;
+  return supabaseClient.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+}
+
+function signOut() {
+  return supabaseClient ? supabaseClient.auth.signOut() : Promise.resolve();
+}
+
+function onAuthChange(cb) {
+  if (!supabaseClient) return;
+  supabaseClient.auth.onAuthStateChange((_event, session) => cb(session));
+}
+
+function initSupabase() {
+  if (!supabaseClient) return null;
+  parseLinkRemote = async (url) => {
+    const { data, error } = await supabaseClient.functions.invoke('parse-link', { body: { url } });
+    if (error) throw error;
+    return data;
+  };
+  return supabaseClient;
+}
+
+async function isAdmin(userId) {
+  if (!useSupabase(SUPABASE_CONFIG)) return true; // демо-пользователь = админ
+  if (!userId || !supabaseClient) return false;
+  const { data, error } = await supabaseClient
+    .from('profiles')
+    .select('is_admin')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return false;
+  return Boolean(data && data.is_admin);
+}
+
+/* ===== SQL-схема для Supabase (копируется из экрана «Настройка») ===== */
+const ADMIN_SQL = `-- Схема вишлиста. Выполните целиком в Supabase → SQL Editor.
+
+create table if not exists items (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  url text,
+  image_url text,
+  price text,
+  store text,
+  rating smallint default 0 check (rating between 0 and 5),
+  note text,
+  category text,
+  created_at timestamptz default now()
+);
+
+create table if not exists reservations (
+  item_id uuid primary key references items(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text,
+  created_at timestamptz default now()
+);
+
+create table if not exists profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  is_admin boolean not null default false
+);
+
+-- Автосоздание профиля при регистрации пользователя
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.profiles (user_id) values (new.id)
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Проверка админа без рекурсии RLS (security definer)
+create or replace function public.is_admin()
+returns boolean language sql security definer stable as $$
+  select coalesce((select is_admin from public.profiles where user_id = auth.uid()), false);
+$$;
+
+-- Row Level Security
+alter table items enable row level security;
+alter table reservations enable row level security;
+alter table profiles enable row level security;
+
+-- items: читают все; создаёт/меняет/удаляет только админ
+drop policy if exists items_select on items;
+create policy items_select on items for select using (true);
+
+drop policy if exists items_write on items;
+create policy items_write on items for all
+  using (public.is_admin()) with check (public.is_admin());
+
+-- reservations: читают только авторизованные не-админы (автор брони НЕ видит);
+-- создаёт/удаляет пользователь только свою бронь
+drop policy if exists reservations_select on reservations;
+create policy reservations_select on reservations for select
+  using (auth.uid() is not null and not public.is_admin());
+
+drop policy if exists reservations_insert on reservations;
+create policy reservations_insert on reservations for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists reservations_delete on reservations;
+create policy reservations_delete on reservations for delete
+  using (auth.uid() = user_id);
+
+-- profiles: пользователь видит свой профиль; админ видит и меняет все
+drop policy if exists profiles_select on profiles;
+create policy profiles_select on profiles for select
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists profiles_update on profiles;
+create policy profiles_update on profiles for update
+  using (public.is_admin());
+
+-- Сделать себя админом (выполнить после первого входа, подставив свой uid):
+-- update profiles set is_admin = true where user_id = '<ваш uid>';
+`;
+
+/* ===== Инструкция по настройке ===== */
+const README_DEPLOY =
+  'Деплой на GitHub Pages: создайте репозиторий, загрузите в него wishlist.html (через веб-интерфейс или git push), затем Settings → Pages → Deploy from branch → main / root. Через минуту страница будет доступна по ссылке вида https://<user>.github.io/<repo>/wishlist.html.';
+
+const SETUP_STEPS = [
+  'Создайте проект на supabase.com (New project, бесплатный тариф).',
+  'Откройте Settings → API и скопируйте Project URL и anon public key в константу SUPABASE_CONFIG в начале скрипта wishlist.html.',
+  'Откройте SQL Editor, вставьте SQL-схему ниже и выполните — создастся таблицы items/reservations/profiles, RLS-политики и триггер создания профиля.',
+  'Разверните Edge Function parse-link (Supabase CLI: supabase functions deploy parse-link, либо Dashboard → Edge Functions → Create). Код ниже.',
+  'Включите вход по magic link: Authentication → Providers → Email (включить) и добавьте адрес сайта в Redirect URLs.',
+  "Войдите на сайте и сделайте себя админом: выполните update profiles set is_admin = true where user_id = '<ваш uid>';",
+  'Опубликуйте сайт: загрузите wishlist.html в репозиторий GitHub и включите Pages (Settings → Pages → Deploy from branch → main / root).',
+];
+
+const EDGE_FUNCTION_CODE = `// Supabase Edge Function: parse-link
+// Имя функции: parse-link. Принимает { url }, возвращает { title, image_url, price, store }.
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+
+function domainOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch (_) { return ""; }
+}
+
+function meta(html, prop) {
+  const tag = html.match(new RegExp('<meta[^>]+(?:property|name)=["\']' + prop + '["\'][^>]*>', "i"));
+  if (!tag) return null;
+  const content = tag[0].match(/content=["\']([^"\']*)["\']/i);
+  return content ? content[1] : null;
+}
+
+serve(async (req) => {
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "*",
+  };
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
+    const { url } = await req.json();
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 wishlist-bot" } });
+    const html = await res.text();
+    const body = {
+      title: meta(html, "og:title") || meta(html, "twitter:title"),
+      image_url: meta(html, "og:image") || meta(html, "twitter:image"),
+      price: meta(html, "product:price:amount") || meta(html, "og:price:amount"),
+      store: domainOf(url),
+    };
+    return new Response(JSON.stringify(body), {
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  } catch (_) {
+    return new Response(
+      JSON.stringify({ title: null, image_url: null, price: null, store: null }),
+      { headers: { ...cors, "Content-Type": "application/json" } }
+    );
+  }
+});
+`;
+
+/* ===== Тема ===== */
+const THEME_KEY = 'wishlist.theme';
+
+function readTheme(storageLike) {
+  let v = null;
+  if (storageLike && typeof storageLike.getItem === 'function') v = storageLike.getItem(THEME_KEY);
+  else if (storageLike) v = storageLike[THEME_KEY];
+  return v === 'light' ? 'light' : 'dark';
+}
+
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+  }
+  return t;
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+  return applyTheme(readTheme({ [THEME_KEY]: saved }));
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  return applyTheme(cur === 'light' ? 'dark' : 'light');
+}
+
+/* ===== Рендер ===== */
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (v == null) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else if (k === 'style') Object.assign(node.style, v);
+      else if (k.slice(0, 2) === 'on' && typeof v === 'function') node.addEventListener(k.slice(2).toLowerCase(), v);
+      else node.setAttribute(k, v);
+    }
+  }
+  (children || []).forEach((c) => {
+    if (c == null) return;
+    node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return node;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function cardTitle(item) {
+  return String((item && item.title) || '').trim();
+}
+
+function applyFilters(items, opts) {
+  const o = opts || {};
+  let out = (items || []).slice();
+  if (o.category) out = out.filter((i) => i.category === o.category);
+  if (o.query) {
+    const q = String(o.query).toLowerCase();
+    out = out.filter((i) => String(i.title || '').toLowerCase().indexOf(q) !== -1);
+  }
+  if (o.sort === 'rating') out.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  else out.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  return out;
+}
+
+function renderStars(rating) {
+  const r = Math.max(0, Math.min(5, parseInt(rating, 10) || 0));
+  const box = el('div', { class: 'stars', title: r + '/5' });
+  for (let i = 1; i <= 5; i++) {
+    box.appendChild(el('span', { class: i <= r ? 'star on' : 'star', text: i <= r ? '★' : '☆' }));
+  }
+  return box;
+}
+
+function statusBadge(item) {
+  return el('span', { class: 'badge', text: statusFromRating(item.rating) });
+}
+
+function emptyState() {
+  return el('div', { class: 'empty', text: 'Пока пусто. Добавь первый айтем — вставь ссылку или заполни вручную.' });
+}
+
+/* ===== Брони подарков ===== */
+function canSeeReservations(ctx) {
+  const c = ctx || {};
+  return !c.isAdmin && !!c.user;
+}
+
+function reservationLabel(res) {
+  return 'Забито: ' + String((res && res.name) || 'кто-то');
+}
+
+async function reserveItem(itemId, user) {
+  try {
+    await app.store.setReservation(itemId, user && user.id, (user && user.name) || '');
+  } catch (e) {
+    /* бронь мог занять кто-то другой — просто перечитаем состояние */
+  } finally {
+    await refresh();
+  }
+}
+
+async function cancelReservation(itemId) {
+  try {
+    await app.store.clearReservation(itemId);
+  } catch (e) {
+    /* состояние перечитаем в любом случае */
+  } finally {
+    await refresh();
+  }
+}
+
+function renderReserve(item, ctx) {
+  if (!canSeeReservations(ctx)) return null;
+  const box = el('div', { class: 'reserve' });
+  const res = (ctx.reservations || []).find((r) => r.item_id === item.id);
+  if (res) {
+    box.appendChild(el('span', { class: 'reserve-label', text: reservationLabel(res) }));
+    if (ctx.userId && res.user_id === ctx.userId) {
+      const cancel = el('button', { class: 'btn btn-sm', type: 'button', text: 'Отменить' });
+      cancel.addEventListener('click', () => cancelReservation(item.id));
+      box.appendChild(cancel);
+    }
+  } else {
+    const take = el('button', { class: 'btn btn-sm btn-primary', type: 'button', text: 'Я возьму' });
+    take.addEventListener('click', () => reserveItem(item.id, ctx.user));
+    box.appendChild(take);
+  }
+  return box;
+}
+
+function renderCard(item, ctx) {
+  const card = el('article', { class: 'card' });
+  const media = el('div', { class: 'card-media' });
+  if (item.image_url) {
+    media.appendChild(el('img', { class: 'card-img', src: item.image_url, alt: cardTitle(item), loading: 'lazy' }));
+  } else {
+    media.appendChild(el('div', { class: 'card-img placeholder', text: 'нет фото' }));
+  }
+  card.appendChild(media);
+
+  const body = el('div', { class: 'card-body' });
+  body.appendChild(el('h3', { class: 'card-title', text: cardTitle(item) || 'Без названия' }));
+
+  const meta = el('div', { class: 'card-meta' });
+  if (item.price) meta.appendChild(el('span', { class: 'price', text: item.price }));
+  if (item.store) meta.appendChild(el('span', { class: 'store', text: item.store }));
+  body.appendChild(meta);
+
+  body.appendChild(renderStars(item.rating));
+  const tags = el('div', { class: 'card-tags' });
+  tags.appendChild(statusBadge(item));
+  if (item.category) tags.appendChild(el('span', { class: 'tag', text: item.category }));
+  body.appendChild(tags);
+
+  if (item.note) body.appendChild(el('p', { class: 'note', text: item.note }));
+  if (item.url) body.appendChild(el('a', { class: 'card-link', href: item.url, target: '_blank', rel: 'noopener', text: 'Открыть ссылку' }));
+
+  if (ctx && ctx.isAdmin) {
+    const actions = el('div', { class: 'card-actions' });
+    const editBtn = el('button', { class: 'btn btn-sm', type: 'button', text: 'Изменить' });
+    editBtn.addEventListener('click', () => openItemForm(item));
+    const delBtn = el('button', { class: 'btn btn-sm btn-danger', type: 'button', text: 'Удалить' });
+    delBtn.addEventListener('click', async () => {
+      try {
+        await app.store.deleteItem(item.id);
+      } catch (e) {
+        /* перечитаем состояние ниже */
+      }
+      await refresh();
+    });
+    actions.append(editBtn, delBtn);
+    body.appendChild(actions);
+  }
+
+  const reserveBox = renderReserve(item, ctx || {});
+  if (reserveBox) body.appendChild(reserveBox);
+
+  card.appendChild(body);
+  return card;
+}
+
+function renderControls(items, current, onChange) {
+  const cur = current || {};
+  const bar = el('div', { class: 'controls' });
+  const cats = Array.from(new Set((items || []).map((i) => i.category).filter(Boolean)));
+  const catSel = el('select', { class: 'control' });
+  const allOpt = el('option', { value: '', text: 'Все категории' });
+  allOpt.selected = !cur.category;
+  catSel.appendChild(allOpt);
+  cats.forEach((c) => {
+    const o = el('option', { value: c, text: c });
+    o.selected = cur.category === c;
+    catSel.appendChild(o);
+  });
+
+  const sortSel = el('select', { class: 'control' });
+  const byDate = el('option', { value: 'date', text: 'Сначала новые' });
+  const byRating = el('option', { value: 'rating', text: 'По звёздам' });
+  const sort = cur.sort === 'rating' ? 'rating' : 'date';
+  byDate.selected = sort === 'date';
+  byRating.selected = sort === 'rating';
+  sortSel.append(byDate, byRating);
+
+  const search = el('input', { class: 'control', type: 'search', placeholder: 'Поиск по названию…' });
+  search.value = cur.query || '';
+
+  const emit = () => onChange({ category: catSel.value || null, sort: sortSel.value, query: search.value || '' });
+  catSel.addEventListener('change', emit);
+  sortSel.addEventListener('change', emit);
+  search.addEventListener('input', emit);
+
+  bar.append(catSel, sortSel, search);
+  return bar;
+}
+
+function renderList(container, items, ctx) {
+  if (!container) return;
+  const c = ctx || {};
+  const filtered = applyFilters(items || [], c.filter || {});
+  container.innerHTML = '';
+  if (!filtered.length) {
+    container.appendChild(emptyState());
+    return;
+  }
+  filtered.forEach((it) => container.appendChild(renderCard(it, c)));
+}
+
+/* ===== Состояние приложения и отрисовка ===== */
+const app = {
+  store: createStore(),
+  items: [],
+  filter: { category: null, sort: 'date', query: '' },
+  user: null,
+  // В демо-режиме пользователь считается админом; при подключении Supabase
+  // значение пересчитывается из profiles.is_admin (Задачи 6–7).
+  isAdmin: true,
+  reservations: [],
+};
+
+function updateAdminUi() {
+  const b = document.getElementById('add-btn');
+  if (b) b.style.display = app.isAdmin ? '' : 'none';
+}
+
+function renderAuthUi() {
+  const slot = document.getElementById('auth-slot');
+  if (!slot) return;
+  slot.innerHTML = '';
+  if (!useSupabase(SUPABASE_CONFIG)) return;
+  if (app.user) {
+    slot.appendChild(el('span', { class: 'auth-user', text: app.user.name || 'вы вошли' }));
+    const out = el('button', { class: 'btn', type: 'button', text: 'Выйти' });
+    out.addEventListener('click', () => signOut());
+    slot.appendChild(out);
+  } else {
+    const email = el('input', { class: 'control', type: 'email', placeholder: 'email для входа' });
+    const btn = el('button', { class: 'btn', type: 'button', text: 'Войти' });
+    btn.addEventListener('click', async () => {
+      if (!email.value) return;
+      await signInWithEmail(email.value.trim());
+      btn.textContent = 'Письмо отправлено';
+    });
+    slot.append(email, btn);
+  }
+}
+
+async function resolveAdmin(user) {
+  return isAdmin(user && user.id);
+}
+
+async function loadSession() {
+  app.user = await app.store.currentUser();
+  app.isAdmin = await resolveAdmin(app.user);
+  renderAuthUi();
+  await refresh();
+}
+
+function codeBlock(title, code) {
+  const box = el('div', { class: 'code-block' });
+  const head = el('div', { class: 'code-head' });
+  head.appendChild(el('span', { class: 'code-title', text: title }));
+  const copy = el('button', { class: 'btn btn-sm', type: 'button', text: 'Копировать' });
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      copy.textContent = 'Скопировано';
+    } catch (e) {
+      copy.textContent = 'Не удалось';
+    }
+  });
+  head.appendChild(copy);
+  box.appendChild(head);
+  box.appendChild(el('pre', { class: 'code', text: code }));
+  return box;
+}
+
+function renderSetup() {
+  const root = document.getElementById('setup-root');
+  if (!root) return;
+  root.innerHTML = '';
+  const overlay = el('div', { class: 'modal-overlay' });
+  const panel = el('div', { class: 'modal setup' });
+  panel.appendChild(el('h2', { class: 'modal-title', text: 'Настройка Supabase и деплой' }));
+  if (!useSupabase(SUPABASE_CONFIG)) {
+    panel.appendChild(
+      el('p', {
+        class: 'setup-note',
+        text: 'Сейчас приложение в демо-режиме: данные хранятся только в этом браузере. Чтобы включить общий список для всех, выполните шаги ниже.',
+      })
+    );
+  }
+  const steps = el('ol', { class: 'setup-steps' });
+  SETUP_STEPS.forEach((s) => steps.appendChild(el('li', { text: s })));
+  panel.appendChild(steps);
+  panel.appendChild(codeBlock('SQL-схема (Supabase → SQL Editor)', ADMIN_SQL));
+  panel.appendChild(codeBlock('Edge Function parse-link', EDGE_FUNCTION_CODE));
+  panel.appendChild(el('p', { class: 'setup-note', text: README_DEPLOY }));
+
+  const close = el('button', { class: 'btn', type: 'button', text: 'Закрыть' });
+  close.addEventListener('click', () => {
+    root.innerHTML = '';
+  });
+  panel.appendChild(el('div', { class: 'modal-actions' }, [close]));
+  overlay.appendChild(panel);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) root.innerHTML = '';
+  });
+  root.appendChild(overlay);
+}
+
+function drawList() {
+  const listEl = document.getElementById('list');
+  renderList(listEl, app.items, {
+    isAdmin: app.isAdmin,
+    reservations: app.reservations,
+    userId: app.user && app.user.id,
+    user: app.user,
+    filter: app.filter,
+  });
+}
+
+async function refresh() {
+  app.items = await app.store.listItems();
+  app.reservations = await app.store.listReservations();
+  updateAdminUi();
+  renderAuthUi();
+  const controlsEl = document.getElementById('controls');
+  if (controlsEl) {
+    controlsEl.innerHTML = '';
+    controlsEl.appendChild(
+      renderControls(app.items, app.filter, (f) => {
+        app.filter = f;
+        drawList();
+      })
+    );
+  }
+  drawList();
+}
+
+/* ===== Парсинг ссылок ===== */
+// Устанавливается при подключении Supabase (Задача 6); в демо-режиме остаётся null.
+let parseLinkRemote = null;
+
+function domainOf(url) {
+  try {
+    return new URL(String(url)).hostname.replace(/^www\./, '');
+  } catch (e) {
+    return '';
+  }
+}
+
+async function parseLink(url) {
+  if (typeof parseLinkRemote === 'function') {
+    try {
+      const r = await parseLinkRemote(url);
+      if (r) {
+        return {
+          title: r.title || null,
+          image_url: r.image_url || null,
+          price: r.price || null,
+          store: r.store || domainOf(url),
+        };
+      }
+    } catch (e) {
+      /* падаем в локальный фолбэк */
+    }
+  }
+  return { title: null, image_url: null, price: null, store: domainOf(url) };
+}
+
+/* ===== Форма айтема ===== */
+function fieldRow(labelText, name, value, type) {
+  const wrap = el('label', { class: 'field' });
+  wrap.appendChild(el('span', { class: 'field-label', text: labelText }));
+  const input = el(type === 'textarea' ? 'textarea' : 'input', { class: 'field-input' });
+  if (type === 'number') input.setAttribute('type', 'number');
+  else if (type === 'url') input.setAttribute('type', 'url');
+  if (type === 'textarea') input.textContent = value == null ? '' : String(value);
+  else input.setAttribute('value', value == null ? '' : String(value));
+  wrap.appendChild(input);
+  return { wrap, input };
+}
+
+function closeModal() {
+  const root = document.getElementById('modal-root');
+  if (root) root.innerHTML = '';
+}
+
+function openItemForm(item) {
+  const root = document.getElementById('modal-root');
+  if (!root) return;
+  const isEdit = !!item;
+  const data = normalizeItem(item || {});
+  root.innerHTML = '';
+
+  const overlay = el('div', { class: 'modal-overlay' });
+  const modal = el('div', { class: 'modal' });
+  modal.appendChild(el('h2', { class: 'modal-title', text: isEdit ? 'Редактировать айтем' : 'Новый айтем' }));
+
+  const fUrl = fieldRow('Ссылка', 'url', data.url, 'url');
+  const fTitle = fieldRow('Название', 'title', data.title);
+  const fImage = fieldRow('Картинка (URL)', 'image_url', data.image_url, 'url');
+  const fPrice = fieldRow('Цена', 'price', data.price);
+  const fStore = fieldRow('Магазин', 'store', data.store);
+  const fCategory = fieldRow('Категория', 'category', data.category);
+  const fRating = fieldRow('Оценка (0–5)', 'rating', data.rating, 'number');
+  const fNote = fieldRow('Заметка: почему хочу / зачем / детали', 'note', data.note, 'textarea');
+
+  const loadBtn = el('button', { class: 'btn', type: 'button', text: 'Загрузить из ссылки' });
+  loadBtn.addEventListener('click', async () => {
+    const url = fUrl.input.value.trim();
+    if (!url) return;
+    loadBtn.textContent = 'Загружаю…';
+    const p = await parseLink(url);
+    if (p.title && !fTitle.input.value) fTitle.input.value = p.title;
+    if (p.image_url && !fImage.input.value) fImage.input.value = p.image_url;
+    if (p.price && !fPrice.input.value) fPrice.input.value = p.price;
+    if (p.store && !fStore.input.value) fStore.input.value = p.store;
+    loadBtn.textContent = 'Загрузить из ссылки';
+  });
+
+  const saveBtn = el('button', { class: 'btn btn-primary', type: 'button', text: 'Сохранить' });
+  saveBtn.addEventListener('click', async () => {
+    const payload = normalizeItem({
+      id: data.id,
+      title: fTitle.input.value,
+      url: fUrl.input.value,
+      image_url: fImage.input.value,
+      price: fPrice.input.value,
+      store: fStore.input.value,
+      category: fCategory.input.value,
+      rating: fRating.input.value,
+      note: fNote.input.value,
+      created_at: data.created_at,
+    });
+    await app.store.saveItem(payload);
+    closeModal();
+    await refresh();
+  });
+
+  const cancelBtn = el('button', { class: 'btn', type: 'button', text: 'Отмена' });
+  cancelBtn.addEventListener('click', closeModal);
+
+  const form = el('div', { class: 'modal-form' });
+  form.append(fUrl.wrap, loadBtn, fTitle.wrap, fImage.wrap, fPrice.wrap, fStore.wrap, fCategory.wrap, fRating.wrap, fNote.wrap);
+  modal.appendChild(form);
+  modal.appendChild(el('div', { class: 'modal-actions' }, [cancelBtn, saveBtn]));
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+  root.appendChild(overlay);
+}
+
+/* ===== Тестовый харнесс (мини, без зависимостей) ===== */
+let __passed = 0, __failed = 0;
+
+function assertEqual(actual, expected, name) {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (ok) {
+    __passed++;
+    console.log('PASS — ' + name);
+  } else {
+    __failed++;
+    console.log('FAIL — ' + name);
+    console.log('  expected', expected, 'got', actual);
+  }
+}
+
+async function runTests() {
+  __passed = 0;
+  __failed = 0;
+
+  assertEqual(statusFromRating(5), 'очень хочу', '5 звёзд → очень хочу');
+  assertEqual(statusFromRating(3), 'хочу', '3 звезды → хочу');
+  assertEqual(statusFromRating(1), 'если что', '1 звезда → если что');
+  assertEqual(statusFromRating(0), 'без оценки', '0 → без оценки');
+  assertEqual(normalizeItem({ title: 'X', rating: 7 }).rating, 5, 'rating > 5 → 5');
+  assertEqual(normalizeItem({ title: 'X', rating: '3' }).rating, 3, 'rating из строки');
+  assertEqual(normalizeItem({ title: 'X' }).title, 'X', 'title сохраняется');
+
+  const s = new LocalStore();
+  await s.saveItem({ title: 'A' });
+  assertEqual((await s.listItems()).length, 1, 'saveItem добавляет');
+  const a = (await s.listItems())[0];
+  await s.saveItem({ ...a, title: 'A2' });
+  assertEqual((await s.listItems()).length, 1, 'saveItem обновляет по id');
+  await s.deleteItem(a.id);
+  assertEqual((await s.listItems()).length, 0, 'deleteItem удаляет');
+
+  assertEqual(readTheme({}), 'dark', 'дефолт — тёмная');
+  assertEqual(readTheme({ 'wishlist.theme': 'light' }), 'light', 'читает сохранённую');
+
+  assertEqual(escapeHtml('<b>&"'), '&lt;b&gt;&amp;&quot;', 'экранирование HTML');
+  assertEqual(cardTitle({ title: '  X  ' }), 'X', 'trim названия');
+  assertEqual(emptyState().textContent.trim().length > 0, true, 'пустое состояние непустое');
+  const src = [{ title: 'A', rating: 2, category: 'g' }, { title: 'B', rating: 5, category: 'b' }];
+  assertEqual(applyFilters(src, { sort: 'rating' })[0].title, 'B', 'сортировка по звёздам');
+  assertEqual(applyFilters(src, { category: 'g' }).length, 1, 'фильтр по категории');
+  assertEqual(applyFilters(src, { query: 'a' })[0].title, 'A', 'поиск по названию');
+
+  assertEqual(domainOf('https://www.ozon.ru/product/1'), 'ozon.ru', 'домен без www');
+  assertEqual(domainOf('not a url'), '', 'невалидный URL → пусто');
+  assertEqual(domainOf('http://sub.shop.io/x'), 'sub.shop.io', 'поддомен сохраняется');
+  assertEqual(normalizeItem({ title: null, price: '1 299 ₽' }).price, '1 299 ₽', 'цена как текст');
+  assertEqual((await parseLink('https://shop.io/x')).store, 'shop.io', 'сбой парсинга → домен как магазин');
+
+  assertEqual(useSupabase({ url: '', key: '' }), false, 'пустые ключи → демо');
+  assertEqual(useSupabase({ url: 'u', key: 'k' }), true, 'ключи есть → Supabase');
+
+  assertEqual(typeof ADMIN_SQL, 'string', 'SQL-константа задана');
+  assertEqual(ADMIN_SQL.includes('create table if not exists items'), true, 'SQL содержит таблицу items');
+
+  assertEqual(canSeeReservations({ isAdmin: true, user: { id: 'a' } }), false, 'админ не видит брони');
+  assertEqual(canSeeReservations({ isAdmin: false, user: null }), false, 'аноним не видит брони');
+  assertEqual(canSeeReservations({ isAdmin: false, user: { id: 'b' } }), true, 'друг видит брони');
+  assertEqual(reservationLabel({ name: 'Ann' }), 'Забито: Ann', 'метка брони');
+  const s2 = new LocalStore();
+  await s2.setReservation('i1', 'u1', 'Ann');
+  await s2.setReservation('i1', 'u2', 'Bob');
+  assertEqual((await s2.listReservations())[0].name, 'Ann', 'повторная бронь не перезаписывает');
+
+  assertEqual(Array.isArray(SETUP_STEPS) && SETUP_STEPS.length >= 5, true, 'шаги настройки заданы');
+  assertEqual(
+    EDGE_FUNCTION_CODE.includes('parse-link') || EDGE_FUNCTION_CODE.includes('og:title'),
+    true,
+    'код функции парсинга'
+  );
+
+  assertEqual(
+    typeof README_DEPLOY === 'string' && README_DEPLOY.includes('Pages'),
+    true,
+    'инструкция деплоя задана'
+  );
+
+  // Демо-сценарий: друг забивает подарок
+  await app.store.saveItem({ title: 'Demo' });
+  const demoItem = (await app.store.listItems()).find((i) => i.title === 'Demo');
+  await reserveItem(demoItem.id, { id: 'friend-1', name: 'Friend' });
+  const reserved = (await app.store.listReservations()).find((x) => x.item_id === demoItem.id);
+  assertEqual(reserved && reserved.name, 'Friend', 'друг забил подарок (демо)');
+
+  // Финальное ревью: исправления
+  assertEqual(displayNameOf('ann@example.com'), 'ann', 'имя из email');
+  assertEqual(displayNameOf(''), '', 'пустой email → пусто');
+
+  const ctr = renderControls([{ category: 'g' }], { category: 'g', sort: 'rating', query: 'x' }, () => {});
+  assertEqual(ctr.children[0].children[1].selected, true, 'фильтр категории сохраняется');
+  assertEqual(ctr.children[1].children[1].selected, true, 'сортировка сохраняется');
+  assertEqual(ctr.children[2].value, 'x', 'поиск сохраняется');
+
+  const origStore = app.store;
+  app.store = {
+    listItems: async () => [],
+    listReservations: async () => [],
+    setReservation: async () => {
+      throw new Error('duplicate');
+    },
+    clearReservation: async () => {
+      throw new Error('boom');
+    },
+  };
+  let threw = false;
+  try {
+    await reserveItem('x', { id: 'u', name: 'n' });
+    await cancelReservation('x');
+  } catch (e) {
+    threw = true;
+  }
+  assertEqual(threw, false, 'ошибка брони не пробрасывается наружу');
+  app.store = origStore;
+
+  return { passed: __passed, failed: __failed };
+}
+
+/* Автозапуск в браузере при ?test=1 */
+if (typeof location !== 'undefined' && location.search.indexOf('test=1') !== -1) {
+  runTests();
+}
+
+/* ===== Bootstrap (только браузер) ===== */
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('DOMContentLoaded', async () => {
+    initTheme();
+    const tt = document.getElementById('theme-toggle');
+    if (tt) tt.addEventListener('click', toggleTheme);
+    const addBtn = document.getElementById('add-btn');
+    if (addBtn) addBtn.addEventListener('click', () => openItemForm(null));
+    const setupBtn = document.getElementById('setup-btn');
+    if (setupBtn) setupBtn.addEventListener('click', renderSetup);
+    initSupabase();
+    onAuthChange(() => loadSession());
+    await loadSession();
+  });
+}
+</script>
+</body>
+</html>
