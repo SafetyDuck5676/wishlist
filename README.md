@@ -28,11 +28,12 @@
 
 ## Настройка общего списка (Supabase)
 
-Нужно один раз, чтобы данные были общими для всех. Подробная инструкция со всеми
-командами и готовым кодом — **внутри приложения**: кнопка **«Настройка»** в шапке
-(она видна, пока ключи не заданы; после настройки её можно убрать).
+Нужно один раз, чтобы данные были общими для всех. Всё, что нужно, лежит в репозитории:
 
-Кратко:
+- `supabase/schema.sql` — схема БД, Storage и правила доступа;
+- `supabase/functions/parse-link/index.ts` — код Edge Function для парсинга ссылок.
+
+Шаги:
 
 1. Создайте проект на [supabase.com](https://supabase.com) (бесплатный тариф).
 2. Откройте **Project Settings** (шестерёнка внизу слева) → **API Keys** и скопируйте
@@ -41,10 +42,14 @@
    `index.html`. `SUPABASE_CONFIG.url` — это `https://<project-ref>.supabase.co`
    (не адрес панели `supabase.com/dashboard/...`).
    Ключ `secret` / `service_role` вставлять **нельзя** — он обходит все правила доступа.
-3. В SQL Editor выполните SQL-схему из окна «Настройка» — она создаёт таблицы
+3. Выполните `supabase/schema.sql` в SQL Editor — создадутся таблицы
    `items`/`reservations`/`profiles`, публичный bucket `wishlist-images` для картинок,
    RLS-политики и триггер создания профиля.
-4. Разверните Edge Function `parse-link` (код в окне «Настройка»).
+4. Разверните Edge Function `parse-link`:
+   ```bash
+   npx supabase link --project-ref <project-ref>
+   npx supabase functions deploy parse-link --no-verify-jwt
+   ```
 5. Включите вход по magic link (Authentication → Providers → Email) и добавьте адрес
    сайта в Redirect URLs.
 6. Войдите и сделайте себя админом:

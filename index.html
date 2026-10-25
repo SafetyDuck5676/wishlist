@@ -228,24 +228,6 @@
   .auth-user { color: var(--muted); font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .reserve { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
   .reserve-label { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
-  .setup { max-width: 720px; }
-  .setup-note { color: var(--muted); font-size: 0.9rem; }
-  .setup-steps { margin: 8px 0 16px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
-  .code-block { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .code-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: var(--panel-2); }
-  .code-title { font-size: 0.82rem; color: var(--muted); }
-  .code {
-    margin: 0;
-    padding: 12px;
-    background: #0b0e13;
-    color: #c9d4e0;
-    font-family: "Consolas", "SFMono-Regular", monospace;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    overflow: auto;
-    max-height: 320px;
-    white-space: pre;
-  }
 </style>
 </head>
 <body>
@@ -255,7 +237,6 @@
     <button id="add-btn" class="btn btn-primary" type="button">Добавить</button>
     <span id="auth-slot"></span>
     <button id="theme-toggle" class="btn" type="button">Тема</button>
-    <button id="setup-btn" class="btn" type="button">Настройка</button>
   </div>
 </header>
 <main class="wrap">
@@ -263,7 +244,6 @@
   <div id="list" class="grid"></div>
 </main>
 <div id="modal-root"></div>
-<div id="setup-root"></div>
 <div id="test-output"></div>
 <script id="app">
 /* ===== Конфигурация Supabase =====
@@ -484,190 +464,6 @@ async function isAdmin(userId) {
   if (error) return false;
   return Boolean(data && data.is_admin);
 }
-
-/* ===== SQL-схема для Supabase (копируется из экрана «Настройка») ===== */
-const ADMIN_SQL = `-- Схема вишлиста. Выполните целиком в Supabase → SQL Editor.
-
-create table if not exists items (
-  id uuid primary key default gen_random_uuid(),
-  title text,
-  url text,
-  image_url text,
-  price text,
-  store text,
-  rating smallint default 0 check (rating between 0 and 5),
-  note text,
-  category text,
-  created_at timestamptz default now()
-);
-
-create table if not exists reservations (
-  item_id uuid primary key references items(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  name text,
-  created_at timestamptz default now()
-);
-
-create table if not exists profiles (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  is_admin boolean not null default false
-);
-
--- Автосоздание профиля при регистрации пользователя
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
-begin
-  insert into public.profiles (user_id) values (new.id)
-  on conflict (user_id) do nothing;
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- Проверка админа без рекурсии RLS (security definer)
-create or replace function public.is_admin()
-returns boolean language sql security definer stable as $$
-  select coalesce((select is_admin from public.profiles where user_id = auth.uid()), false);
-$$;
-
--- Row Level Security
-alter table items enable row level security;
-alter table reservations enable row level security;
-alter table profiles enable row level security;
-
--- items: читают все; создаёт/меняет/удаляет только админ
-drop policy if exists items_select on items;
-create policy items_select on items for select using (true);
-
-drop policy if exists items_write on items;
-create policy items_write on items for all
-  using (public.is_admin()) with check (public.is_admin());
-
--- reservations: читают только авторизованные не-админы (автор брони НЕ видит);
--- создаёт/удаляет пользователь только свою бронь
-drop policy if exists reservations_select on reservations;
-create policy reservations_select on reservations for select
-  using (auth.uid() is not null and not public.is_admin());
-
-drop policy if exists reservations_insert on reservations;
-create policy reservations_insert on reservations for insert
-  with check (auth.uid() = user_id);
-
-drop policy if exists reservations_delete on reservations;
-create policy reservations_delete on reservations for delete
-  using (auth.uid() = user_id);
-
--- profiles: пользователь видит свой профиль; админ видит и меняет все
-drop policy if exists profiles_select on profiles;
-create policy profiles_select on profiles for select
-  using (auth.uid() = user_id or public.is_admin());
-
-drop policy if exists profiles_update on profiles;
-create policy profiles_update on profiles for update
-  using (public.is_admin());
-
--- Storage: публичный bucket для картинок айтемов
-insert into storage.buckets (id, name, public)
-values ('wishlist-images', 'wishlist-images', true)
-on conflict (id) do nothing;
-
-drop policy if exists wishlist_images_read on storage.objects;
-create policy wishlist_images_read on storage.objects for select
-  using (bucket_id = 'wishlist-images');
-
-drop policy if exists wishlist_images_write on storage.objects;
-create policy wishlist_images_write on storage.objects for insert
-  with check (bucket_id = 'wishlist-images' and public.is_admin());
-
-drop policy if exists wishlist_images_delete on storage.objects;
-create policy wishlist_images_delete on storage.objects for delete
-  using (bucket_id = 'wishlist-images' and public.is_admin());
-
--- Сделать себя админом (выполнить после первого входа, подставив свой uid):
--- update profiles set is_admin = true where user_id = '<ваш uid>';
-`;
-
-/* ===== Инструкция по настройке ===== */
-const README_DEPLOY =
-  'Деплой на GitHub Pages: положите index.html в корень репозитория (через веб-интерфейс или git push), затем Settings → Pages → Deploy from branch → main / root. Через минуту страница будет доступна по ссылке вида https://<user>.github.io/<repo>/. Имя index.html обязательно: без него Pages покажет README.md вместо приложения.';
-
-const SETUP_STEPS = [
-  'Создайте проект на supabase.com (New project, бесплатный тариф).',
-  'Откройте Project Settings (шестерёнка внизу слева) → API Keys. Скопируйте publishable key (начинается с sb_publishable_) — в старом интерфейсе это anon public, длинная строка eyJ.... Вставьте его в SUPABASE_CONFIG.key в начале скрипта index.html. Ключ secret / service_role вставлять нельзя — он даёт полный доступ ко всей базе.',
-  'Откройте SQL Editor, вставьте SQL-схему ниже и выполните — создастся таблицы items/reservations/profiles, публичный bucket wishlist-images для картинок, RLS-политики и триггер создания профиля.',
-  'Разверните Edge Function parse-link (Supabase CLI: supabase functions deploy parse-link, либо Dashboard → Edge Functions → Create). Код ниже.',
-  'Включите вход по magic link: Authentication → Providers → Email (включить) и добавьте адрес сайта в Redirect URLs.',
-  "Войдите на сайте и сделайте себя админом: выполните update profiles set is_admin = true where user_id = '<ваш uid>';",
-  'Опубликуйте сайт: загрузите index.html в корень репозитория GitHub и включите Pages (Settings → Pages → Deploy from branch → main / root).',
-];
-
-const EDGE_FUNCTION_CODE = `// Supabase Edge Function: parse-link
-// Принимает { url }, возвращает { title, image_url, price, store }.
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-
-function domainOf(url) {
-  try {
-    const host = new URL(url).hostname;
-    return host.indexOf("www.") === 0 ? host.slice(4) : host;
-  } catch (_) {
-    return "";
-  }
-}
-
-// Достаёт content мета-тега с указанным property/name.
-function meta(html, prop) {
-  const tags = html.match(/<meta[^>]*>/gi) || [];
-  for (const tag of tags) {
-    const name = tag.match(/(?:property|name)=["']([^"']+)["']/i);
-    if (!name || name[1].toLowerCase() !== prop.toLowerCase()) continue;
-    const content = tag.match(/content=["']([^"']*)["']/i);
-    return content ? content[1] : null;
-  }
-  return null;
-}
-
-serve(async (req) => {
-  const cors = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "*",
-  };
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  let target = "";
-  try {
-    const body = await req.json();
-    target = String(body.url || "");
-    const res = await fetch(target, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
-        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
-      },
-      redirect: "follow",
-      signal: AbortSignal.timeout(9000),
-    });
-    const html = await res.text();
-    const result = {
-      title: meta(html, "og:title") || meta(html, "twitter:title"),
-      image_url: meta(html, "og:image") || meta(html, "twitter:image"),
-      price: meta(html, "product:price:amount") || meta(html, "og:price:amount"),
-      store: domainOf(target),
-    };
-    return new Response(JSON.stringify(result), {
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
-  } catch (_) {
-    // Сайт закрыт от ботов или не отвечает — магазин всё равно подставляем.
-    return new Response(
-      JSON.stringify({ title: null, image_url: null, price: null, store: domainOf(target) }),
-      { headers: { ...cors, "Content-Type": "application/json" } }
-    );
-  }
-});
-`;
 
 /* ===== Тема ===== */
 const THEME_KEY = 'wishlist.theme';
@@ -980,59 +776,6 @@ async function loadSession() {
   await refresh();
 }
 
-function codeBlock(title, code) {
-  const box = el('div', { class: 'code-block' });
-  const head = el('div', { class: 'code-head' });
-  head.appendChild(el('span', { class: 'code-title', text: title }));
-  const copy = el('button', { class: 'btn btn-sm', type: 'button', text: 'Копировать' });
-  copy.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      copy.textContent = 'Скопировано';
-    } catch (e) {
-      copy.textContent = 'Не удалось';
-    }
-  });
-  head.appendChild(copy);
-  box.appendChild(head);
-  box.appendChild(el('pre', { class: 'code', text: code }));
-  return box;
-}
-
-function renderSetup() {
-  const root = document.getElementById('setup-root');
-  if (!root) return;
-  root.innerHTML = '';
-  const overlay = el('div', { class: 'modal-overlay' });
-  const panel = el('div', { class: 'modal setup' });
-  panel.appendChild(el('h2', { class: 'modal-title', text: 'Настройка Supabase и деплой' }));
-  if (!useSupabase(SUPABASE_CONFIG)) {
-    panel.appendChild(
-      el('p', {
-        class: 'setup-note',
-        text: 'Сейчас приложение в демо-режиме: данные хранятся только в этом браузере. Чтобы включить общий список для всех, выполните шаги ниже.',
-      })
-    );
-  }
-  const steps = el('ol', { class: 'setup-steps' });
-  SETUP_STEPS.forEach((s) => steps.appendChild(el('li', { text: s })));
-  panel.appendChild(steps);
-  panel.appendChild(codeBlock('SQL-схема (Supabase → SQL Editor)', ADMIN_SQL));
-  panel.appendChild(codeBlock('Edge Function parse-link', EDGE_FUNCTION_CODE));
-  panel.appendChild(el('p', { class: 'setup-note', text: README_DEPLOY }));
-
-  const close = el('button', { class: 'btn', type: 'button', text: 'Закрыть' });
-  close.addEventListener('click', () => {
-    root.innerHTML = '';
-  });
-  panel.appendChild(el('div', { class: 'modal-actions' }, [close]));
-  overlay.appendChild(panel);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) root.innerHTML = '';
-  });
-  root.appendChild(overlay);
-}
-
 function drawList() {
   const listEl = document.getElementById('list');
   renderList(listEl, app.items, {
@@ -1288,9 +1031,6 @@ async function runTests() {
   assertEqual(useSupabase({ url: '', key: '' }), false, 'пустые ключи → демо');
   assertEqual(useSupabase({ url: 'u', key: 'k' }), true, 'ключи есть → Supabase');
 
-  assertEqual(typeof ADMIN_SQL, 'string', 'SQL-константа задана');
-  assertEqual(ADMIN_SQL.includes('create table if not exists items'), true, 'SQL содержит таблицу items');
-  assertEqual(ADMIN_SQL.includes('wishlist-images'), true, 'SQL содержит bucket для картинок');
   assertEqual(
     document.getElementById('test-output').textContent.indexOf('PASS') !== -1,
     true,
@@ -1305,38 +1045,6 @@ async function runTests() {
   await s2.setReservation('i1', 'u1', 'Ann');
   await s2.setReservation('i1', 'u2', 'Bob');
   assertEqual((await s2.listReservations())[0].name, 'Ann', 'повторная бронь не перезаписывает');
-
-  assertEqual(Array.isArray(SETUP_STEPS) && SETUP_STEPS.length >= 5, true, 'шаги настройки заданы');
-  assertEqual(
-    EDGE_FUNCTION_CODE.includes('parse-link') || EDGE_FUNCTION_CODE.includes('og:title'),
-    true,
-    'код функции парсинга'
-  );
-
-  // Код Edge Function должен быть синтаксически валидным JS: шаблонная строка
-  // съедает обратные слэши, из-за чего код в инструкции ломался при деплое.
-  const fnSrc = EDGE_FUNCTION_CODE.replace(/^\s*import .*$/m, '');
-  let fnErr = null;
-  try { new Function(fnSrc); } catch (e) { fnErr = e.message; }
-  assertEqual(fnErr, null, 'код Edge Function синтаксически валиден');
-  assertEqual(EDGE_FUNCTION_CODE.indexOf('/^www./') === -1, true, 'регэксп www не потерял слэш');
-  assertEqual(
-    EDGE_FUNCTION_CODE.indexOf('store: domainOf(target)') !== -1,
-    true,
-    'при сбое парсинга магазин всё равно определяется'
-  );
-  assertEqual(EDGE_FUNCTION_CODE.indexOf('AbortSignal.timeout') !== -1, true, 'есть таймаут запроса');
-
-  assertEqual(
-    typeof README_DEPLOY === 'string' && README_DEPLOY.includes('Pages'),
-    true,
-    'инструкция деплоя задана'
-  );
-  assertEqual(
-    README_DEPLOY.includes('index.html') && README_DEPLOY.indexOf('wishlist.html') === -1,
-    true,
-    'инструкция деплоя ссылается на index.html'
-  );
 
   // Демо-сценарий: друг забивает подарок (в изолированном хранилище)
   const demoStore = new LocalStore(memoryStorage());
@@ -1427,8 +1135,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     if (tt) tt.addEventListener('click', toggleTheme);
     const addBtn = document.getElementById('add-btn');
     if (addBtn) addBtn.addEventListener('click', () => openItemForm(null));
-    const setupBtn = document.getElementById('setup-btn');
-    if (setupBtn) setupBtn.addEventListener('click', renderSetup);
     initSupabase();
     onAuthChange(() => loadSession());
     await loadSession();
