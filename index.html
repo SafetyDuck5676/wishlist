@@ -226,6 +226,7 @@
   .btn-danger { color: var(--danger); border-color: var(--danger); }
   .btn-danger:hover { background: var(--danger); color: #fff; }
   .auth-user { color: var(--muted); font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-note { color: var(--danger); font-size: 0.78rem; max-width: 260px; line-height: 1.3; }
   .reserve { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
   .reserve-label { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
 </style>
@@ -428,8 +429,18 @@ function displayNameOf(email) {
   return at > 0 ? s.slice(0, at) : s;
 }
 
+function describeAuthError(error) {
+  if (!error) return '';
+  if (error.status === 429 || error.code === 'over_email_send_rate_limit') {
+    return 'Превышен лимит отправки писем (у Supabase встроенная почта — пара писем в час). Попробуйте позже или подключите свой SMTP.';
+  }
+  const msg = String(error.message || '');
+  if (/invalid/i.test(msg) && /email|format/i.test(msg)) return 'Проверьте адрес почты';
+  return msg || 'Не удалось отправить письмо';
+}
+
 function signInWithEmail(email) {
-  if (!supabaseClient) return Promise.resolve();
+  if (!supabaseClient) return Promise.resolve({});
   const redirectTo = typeof location !== 'undefined' ? location.origin + location.pathname : undefined;
   return supabaseClient.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
 }
@@ -518,6 +529,18 @@ function el(tag, attrs, children) {
 
 function cardTitle(item) {
   return String((item && item.title) || '').trim();
+}
+
+// Цена хранится как свободный текст («2500», «~300»). Показываем её в рублях,
+// но не трогаем, если валюта уже указана явно.
+function formatPrice(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  if (!/\d/.test(raw)) return raw;
+  // \b в JS не работает с кириллицей — проверяем валюту явными шаблонами.
+  const hasCurrency = /[₽$€£¥]|руб|RUB|USD|EUR|(^|\s)р\.?(\s|$)/i.test(raw);
+  if (hasCurrency) return raw;
+  return raw + ' ₽';
 }
 
 function applyFilters(items, opts) {
@@ -643,7 +666,7 @@ function renderCard(item, ctx) {
   body.appendChild(el('h3', { class: 'card-title', text: cardTitle(item) || 'Без названия' }));
 
   const meta = el('div', { class: 'card-meta' });
-  if (item.price) meta.appendChild(el('span', { class: 'price', text: item.price }));
+  if (item.price) meta.appendChild(el('span', { class: 'price', text: formatPrice(item.price) }));
   if (item.store) meta.appendChild(el('span', { class: 'store', text: item.store }));
   body.appendChild(meta);
 
@@ -756,12 +779,29 @@ function renderAuthUi() {
   } else {
     const email = el('input', { class: 'control', type: 'email', placeholder: 'email для входа' });
     const btn = el('button', { class: 'btn', type: 'button', text: 'Войти' });
+    const note = el('span', { class: 'auth-note' });
     btn.addEventListener('click', async () => {
       if (!email.value) return;
-      await signInWithEmail(email.value.trim());
-      btn.textContent = 'Письмо отправлено';
+      note.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Отправляю…';
+      let error = null;
+      try {
+        const res = await signInWithEmail(email.value.trim());
+        error = res && res.error ? res.error : null;
+      } catch (e) {
+        error = e;
+      }
+      btn.disabled = false;
+      if (error) {
+        btn.textContent = 'Войти';
+        note.textContent = describeAuthError(error);
+      } else {
+        btn.textContent = 'Письмо отправлено';
+        note.textContent = 'Проверьте почту и папку «Спам».';
+      }
     });
-    slot.append(email, btn);
+    slot.append(email, btn, note);
   }
 }
 
@@ -910,7 +950,7 @@ function openItemForm(item) {
   imageBlock.appendChild(imageUrlInput);
   syncPreview();
 
-  const fPrice = fieldRow('Цена', data.price);
+  const fPrice = fieldRow('Цена, ₽', data.price);
   const fStore = fieldRow('Магазин', data.store);
   const fCategory = fieldRow('Категория', data.category);
   const ratingPicker = renderStarPicker(data.rating, null);
@@ -1026,10 +1066,36 @@ async function runTests() {
   assertEqual(domainOf('not a url'), '', 'невалидный URL → пусто');
   assertEqual(domainOf('http://sub.shop.io/x'), 'sub.shop.io', 'поддомен сохраняется');
   assertEqual(normalizeItem({ title: null, price: '1 299 ₽' }).price, '1 299 ₽', 'цена как текст');
+
+  // Цена показывается в рублях
+  assertEqual(formatPrice('2500'), '2500 ₽', 'число → рубли');
+  assertEqual(formatPrice('1 299'), '1 299 ₽', 'число с пробелом → рубли');
+  assertEqual(formatPrice('~300'), '~300 ₽', 'примерная цена → рубли');
+  assertEqual(formatPrice('2500 ₽'), '2500 ₽', 'не дублирует знак рубля');
+  assertEqual(formatPrice('2500 руб.'), '2500 руб.', 'не дублирует «руб.»');
+  assertEqual(formatPrice('$20'), '$20', 'доллар не переделываем в рубли');
+  assertEqual(formatPrice(''), '', 'пустая цена → пусто');
+  assertEqual(formatPrice(null), '', 'null → пусто');
+  assertEqual(formatPrice('дорого'), 'дорого', 'текст без цифр не трогаем');
+  const priceCard = renderCard({ title: 'X', price: '2500' }, { isAdmin: false, reservations: [] });
+  assertEqual(priceCard.children[1].children[1].children[0].textContent, '2500 ₽', 'в карточке цена с рублём');
   assertEqual((await parseLink('https://shop.io/x')).store, 'shop.io', 'сбой парсинга → домен как магазин');
 
   assertEqual(useSupabase({ url: '', key: '' }), false, 'пустые ключи → демо');
   assertEqual(useSupabase({ url: 'u', key: 'k' }), true, 'ключи есть → Supabase');
+
+  // Понятные сообщения вместо молчаливого «письмо отправлено»
+  assertEqual(describeAuthError(null), '', 'нет ошибки → пусто');
+  assertEqual(
+    describeAuthError({ status: 429, code: 'over_email_send_rate_limit' }).indexOf('лимит') !== -1,
+    true,
+    'лимит отправки объясняется'
+  );
+  assertEqual(
+    describeAuthError({ status: 400, message: 'Email address is invalid' }),
+    'Проверьте адрес почты',
+    'неверный email объясняется'
+  );
 
   assertEqual(
     document.getElementById('test-output').textContent.indexOf('PASS') !== -1,
