@@ -1,0 +1,8 @@
+# Локальное состояние Supabase CLI (создаётся `supabase link`).
+# В pooler-url лежит строка подключения к базе с паролем — в git нельзя.
+supabase/.temp/
+
+# Секреты и локальные env-файлы
+.env
+.env.*
+!.env.example
