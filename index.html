@@ -60,6 +60,14 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
+  .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .summary {
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .topbar-actions { display: flex; align-items: center; gap: 8px; }
   .btn {
     background: var(--panel-2);
@@ -163,6 +171,56 @@
     border: 1px dashed var(--border);
     border-radius: 14px;
   }
+  .empty-art { display: flex; justify-content: center; margin-bottom: 14px; color: var(--muted); }
+  .empty-art svg { filter: drop-shadow(0 10px 24px rgba(245, 166, 35, 0.18)); }
+  .empty-title { margin: 0 0 6px; font-size: 1.15rem; color: var(--text); }
+  .empty-hint { margin: 0 auto; max-width: 42ch; font-size: 0.9rem; line-height: 1.5; }
+
+  /* ===== Скелетоны на время загрузки ===== */
+  @keyframes skeleton-sweep {
+    from { background-position: -180% 0; }
+    to { background-position: 280% 0; }
+  }
+  .skeleton-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .skeleton-media { aspect-ratio: 4 / 3; }
+  .skeleton-body { padding: 14px; display: flex; flex-direction: column; gap: 9px; }
+  .skeleton-line { height: 11px; border-radius: 6px; }
+  .skeleton-title { width: 78%; height: 14px; }
+  .skeleton-short { width: 46%; }
+  .skeleton-tiny { width: 30%; height: 9px; }
+  .skeleton-media,
+  .skeleton-line {
+    background-image: linear-gradient(
+      100deg,
+      var(--panel-2) 20%,
+      rgba(255, 255, 255, 0.06) 45%,
+      var(--panel-2) 70%
+    );
+    background-size: 220% 100%;
+    animation: skeleton-sweep 1.5s linear infinite;
+  }
+  :root[data-theme="light"] .skeleton-media,
+  :root[data-theme="light"] .skeleton-line {
+    background-image: linear-gradient(
+      100deg,
+      var(--panel-2) 20%,
+      rgba(0, 0, 0, 0.05) 45%,
+      var(--panel-2) 70%
+    );
+  }
+
+  /* ===== 3D-наклон карточки ===== */
+  .card-tilt {
+    transform-style: preserve-3d;
+    will-change: transform;
+    transition: transform 0.18s var(--ease), border-color 0.25s var(--ease),
+      box-shadow 0.3s var(--ease);
+  }
   #test-output {
     display: none;
     max-width: 1080px;
@@ -225,15 +283,203 @@
   .btn-sm { padding: 5px 10px; font-size: 0.8rem; border-radius: 8px; }
   .btn-danger { color: var(--danger); border-color: var(--danger); }
   .btn-danger:hover { background: var(--danger); color: #fff; }
-  .auth-user { color: var(--muted); font-size: 0.85rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    max-width: 260px;
+    min-width: 0;
+    vertical-align: middle;
+  }
+  .auth-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex: none;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .auth-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .auth-note { color: var(--danger); font-size: 0.78rem; max-width: 260px; line-height: 1.3; }
   .reserve { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
   .reserve-label { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+
+  /* ===== Визуальный слой: свечение, анимации, микровзаимодействия ===== */
+  :root {
+    --glow: 0 0 0 1px rgba(245, 166, 35, 0.35), 0 10px 34px rgba(245, 166, 35, 0.18);
+    --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  :root[data-theme="light"] {
+    --glow: 0 0 0 1px rgba(224, 139, 0, 0.28), 0 10px 28px rgba(224, 139, 0, 0.16);
+  }
+
+  /* Мягкие цветовые пятна на фоне */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(60rem 32rem at 12% -8%, var(--accent-soft), transparent 65%),
+      radial-gradient(48rem 28rem at 92% 4%, rgba(96, 165, 250, 0.10), transparent 60%);
+    opacity: 0.9;
+  }
+
+  .topbar {
+    background: color-mix(in srgb, var(--panel) 82%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  .topbar h1 {
+    background: linear-gradient(92deg, var(--text), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Кнопки */
+  .btn {
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease),
+      transform 0.12s var(--ease), box-shadow 0.25s var(--ease);
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
+  .btn:active { transform: translateY(0) scale(0.97); }
+  .btn-primary { box-shadow: 0 6px 20px rgba(245, 166, 35, 0.22); }
+  .btn-primary:hover { box-shadow: 0 10px 28px rgba(245, 166, 35, 0.38); }
+  .btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
+  .btn:focus-visible, .control:focus-visible, .field-input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Карточки: каскадное появление и подсветка при наведении */
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(14px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  .card {
+    animation: card-in 0.45s var(--ease) both;
+    transition: transform 0.25s var(--ease), border-color 0.25s var(--ease),
+      box-shadow 0.3s var(--ease);
+  }
+  .card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+  .card-img { transition: transform 0.5s var(--ease); }
+  .card:hover .card-img { transform: scale(1.045); }
+
+  /* Блик на заглушке «нет фото» */
+  @keyframes shimmer {
+    from { background-position: -160% 0; }
+    to { background-position: 260% 0; }
+  }
+  .card-img.placeholder {
+    background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      var(--accent-soft) 45%,
+      transparent 70%
+    );
+    background-size: 220% 100%;
+    animation: shimmer 2.6s linear infinite;
+  }
+
+  /* Забронированный айтем у админа: спокойная метка, без имён */
+  .card-reserved { border-color: rgba(96, 165, 250, 0.5); }
+  .card-reserved:hover {
+    border-color: rgba(96, 165, 250, 0.85);
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4), 0 10px 30px rgba(96, 165, 250, 0.2);
+  }
+
+  /* «Очень хочу» (5 звёзд): тёплое свечение, чтобы главное было видно сразу */
+  @keyframes hot-glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.30), 0 8px 26px rgba(245, 166, 35, 0.12); }
+    50% { box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.55), 0 10px 34px rgba(245, 166, 35, 0.26); }
+  }
+  .card-hot { border-color: rgba(245, 166, 35, 0.55); animation: card-in 0.45s var(--ease) both, hot-glow 3.6s ease-in-out infinite; }
+  .card-hot:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.65), 0 14px 40px rgba(245, 166, 35, 0.32);
+  }
+  .stars-hot { color: var(--accent); text-shadow: 0 0 10px rgba(245, 166, 35, 0.55); }
+  .badge-reserved::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+  }
+  @keyframes reserved-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.62; }
+  }
+
+  /* Модальные окна */
+  @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(18px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  .modal-overlay {
+    animation: overlay-in 0.18s ease both;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .modal { animation: modal-in 0.28s var(--ease) both; }
+
+  .field-input { transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease); }
+  .field-input:focus { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .empty { animation: card-in 0.4s var(--ease) both; }
+
+  /* Скроллбар */
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+    .card:hover { transform: none; }
+  }
+
+  /* Плавная смена темы «волной» (View Transitions API) */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(root) { z-index: 1; }
+  ::view-transition-new(root) { z-index: 2; }
 </style>
 </head>
 <body>
 <header class="topbar">
-  <h1>Вишлист</h1>
+  <div class="brand">
+    <h1>Вишлист</h1>
+    <span id="summary" class="summary"></span>
+  </div>
   <div class="topbar-actions">
     <button id="add-btn" class="btn btn-primary" type="button">Добавить</button>
     <span id="auth-slot"></span>
@@ -342,6 +588,9 @@ class LocalStore {
   async listReservations() {
     return this._read(this.resKey, []);
   }
+  async listReservedIds() {
+    return this._read(this.resKey, []).map((r) => r.item_id);
+  }
   async setReservation(item_id, user_id, name) {
     const list = this._read(this.resKey, []);
     if (list.some((r) => r.item_id === item_id)) return;
@@ -397,6 +646,12 @@ class SupabaseStore {
     const { data, error } = await this.client.from('reservations').select('item_id,user_id,name');
     if (error) throw error;
     return data || [];
+  }
+  // Только id забронированных айтемов — RPC отдаёт их лишь админу и без имён.
+  async listReservedIds() {
+    const { data, error } = await this.client.rpc('reserved_item_ids');
+    if (error) return [];
+    return (data || []).map((row) => (typeof row === 'string' ? row : row.item_id));
   }
   async setReservation(item_id, user_id, name) {
     const { error } = await this.client.from('reservations').insert({ item_id, user_id, name });
@@ -495,15 +750,50 @@ function applyTheme(theme) {
   return t;
 }
 
+// Плавная смена темы «волной» от центра кнопки.
+// В браузерах без View Transitions тема просто переключается мгновенно.
+function switchThemeWithWave(originEl) {
+  const cur = typeof document !== 'undefined'
+    ? document.documentElement.getAttribute('data-theme')
+    : null;
+  const next = cur === 'light' ? 'dark' : 'light';
+
+  const canWave =
+    typeof document !== 'undefined' &&
+    typeof document.startViewTransition === 'function' &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!canWave) return applyTheme(next);
+
+  let x = window.innerWidth / 2;
+  let y = window.innerHeight / 2;
+  if (originEl && originEl.getBoundingClientRect) {
+    const r = originEl.getBoundingClientRect();
+    x = r.left + r.width / 2;
+    y = r.top + r.height / 2;
+  }
+  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+  const transition = document.startViewTransition(() => applyTheme(next));
+  transition.ready
+    .then(() => {
+      document.documentElement.animate(
+        { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + radius + 'px at ' + x + 'px ' + y + 'px)'] },
+        { duration: 520, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)', pseudoElement: '::view-transition-new(root)' }
+      );
+    })
+    .catch(() => {});
+  return next;
+}
+
 function initTheme() {
   let saved = null;
   try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
   return applyTheme(readTheme({ [THEME_KEY]: saved }));
 }
 
-function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme');
-  return applyTheme(cur === 'light' ? 'dark' : 'light');
+function toggleTheme(originEl) {
+  return switchThemeWithWave(originEl);
 }
 
 /* ===== Рендер ===== */
@@ -558,11 +848,30 @@ function applyFilters(items, opts) {
 
 function renderStars(rating) {
   const r = Math.max(0, Math.min(5, parseInt(rating, 10) || 0));
-  const box = el('div', { class: 'stars', title: r + '/5' });
+  const box = el('div', { class: r === 5 ? 'stars stars-hot' : 'stars', title: r + '/5' });
   for (let i = 1; i <= 5; i++) {
     box.appendChild(el('span', { class: i <= r ? 'star on' : 'star', text: i <= r ? '★' : '☆' }));
   }
   return box;
+}
+
+// Правильная форма слова «желание» для счётчика в шапке.
+function pluralWishes(n) {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return 'желаний';
+  if (b === 1) return 'желание';
+  if (b >= 2 && b <= 4) return 'желания';
+  return 'желаний';
+}
+
+// «12 желаний · 3 занято» — сколько всего и сколько уже забронировано.
+function summaryText(items, reservedIds) {
+  const total = (items || []).length;
+  if (!total) return '';
+  const taken = (reservedIds || []).length;
+  const base = total + ' ' + pluralWishes(total);
+  return taken ? base + ' · ' + taken + ' занято' : base;
 }
 
 // Клик по звезде i ставит оценку i; клик по уже выбранной — сбрасывает в 0.
@@ -599,8 +908,125 @@ function statusBadge(item) {
   return el('span', { class: 'badge', text: statusFromRating(item.rating) });
 }
 
+// Заглушки-скелетоны на время загрузки: пользователь видит структуру, а не пустоту.
+function renderSkeletons(container, count) {
+  if (!container) return;
+  const n = Math.max(1, count || 6);
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const card = el('div', { class: 'skeleton-card', 'aria-hidden': 'true' });
+    card.appendChild(el('div', { class: 'skeleton-media' }));
+    const body = el('div', { class: 'skeleton-body' });
+    body.appendChild(el('div', { class: 'skeleton-line skeleton-title' }));
+    body.appendChild(el('div', { class: 'skeleton-line skeleton-short' }));
+    body.appendChild(el('div', { class: 'skeleton-line skeleton-tiny' }));
+    card.appendChild(body);
+    container.appendChild(card);
+  }
+}
+
+// Иллюстрация для пустого списка — SVG прямо в разметке, без внешних файлов.
+const EMPTY_ART = `
+<svg viewBox="0 0 200 150" width="200" height="150" role="img" aria-label="Пустой вишлист">
+  <defs>
+    <linearGradient id="giftBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5a623" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#f5a623" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="giftLid" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffc65c" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#f5a623" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="100" cy="132" rx="58" ry="8" fill="currentColor" opacity="0.12"/>
+  <rect x="52" y="72" width="96" height="58" rx="8" fill="url(#giftBody)"/>
+  <rect x="46" y="60" width="108" height="20" rx="7" fill="url(#giftLid)"/>
+  <rect x="94" y="60" width="12" height="70" fill="#0e1116" opacity="0.28"/>
+  <path d="M100 60c-6-14-20-22-27-16-6 5-1 14 8 16z" fill="none" stroke="#ffc65c" stroke-width="4" stroke-linejoin="round" opacity="0.9"/>
+  <path d="M100 60c6-14 20-22 27-16 6 5 1 14-8 16z" fill="none" stroke="#ffc65c" stroke-width="4" stroke-linejoin="round" opacity="0.9"/>
+  <circle cx="160" cy="30" r="3" fill="#f5a623" opacity="0.8"/>
+  <circle cx="40" cy="24" r="2.4" fill="#f5a623" opacity="0.6"/>
+  <circle cx="172" cy="66" r="2" fill="#7cb0ff" opacity="0.7"/>
+  <circle cx="28" cy="70" r="2.6" fill="#7cb0ff" opacity="0.5"/>
+</svg>`;
+
 function emptyState() {
-  return el('div', { class: 'empty', text: 'Пока пусто. Добавь первый айтем — вставь ссылку или заполни вручную.' });
+  const box = el('div', { class: 'empty' });
+  const art = el('div', { class: 'empty-art' });
+  art.innerHTML = EMPTY_ART;
+  box.appendChild(art);
+  box.appendChild(el('h2', { class: 'empty-title', text: 'Здесь пока пусто' }));
+  box.appendChild(
+    el('p', {
+      class: 'empty-hint',
+      text: 'Добавьте первое желание: вставьте ссылку на товар или заполните поля вручную.',
+    })
+  );
+  return box;
+}
+
+/* ===== 3D-наклон карточки ===== */
+// Углы наклона из позиции курсора внутри карточки. Центр → 0, край → ±MAX.
+const TILT_MAX = 7;
+
+function tiltAngles(x, y, w, h) {
+  if (!w || !h) return { rx: 0, ry: 0 };
+  const dx = (x / w - 0.5) * 2; // -1..1
+  const dy = (y / h - 0.5) * 2;
+  return {
+    rx: Number((-dy * TILT_MAX).toFixed(2)),
+    ry: Number((dx * TILT_MAX).toFixed(2)),
+  };
+}
+
+// Лёгкий наклон вслед за мышью. Только для устройств с точным курсором:
+// на тач-экранах и при отключённых анимациях ничего не навешиваем.
+function attachTilt(card) {
+  if (!card) return card;
+  const noHover =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const reduced =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (noHover || reduced) return card;
+
+  card.className = (card.className ? card.className + ' ' : '') + 'card-tilt';
+  const state = { raf: 0, rx: 0, ry: 0 };
+  card._tiltHandlers = state;
+
+  const apply = () => {
+    state.raf = 0;
+    card.style.transform =
+      'translateY(-4px) perspective(900px) rotateX(' + state.rx + 'deg) rotateY(' + state.ry + 'deg)';
+  };
+
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null;
+  const caf = typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : null;
+
+  card.addEventListener('mousemove', (e) => {
+    const r = card.getBoundingClientRect();
+    const a = tiltAngles(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
+    state.rx = a.rx;
+    state.ry = a.ry;
+    if (raf) {
+      if (!state.raf) state.raf = raf(apply);
+    } else {
+      apply();
+    }
+  });
+
+  card.addEventListener('mouseleave', () => {
+    state.rx = 0;
+    state.ry = 0;
+    if (caf && state.raf) caf(state.raf);
+    state.raf = 0;
+    card.style.transform = '';
+  });
+
+  return card;
 }
 
 /* ===== Брони подарков ===== */
@@ -611,6 +1037,13 @@ function canSeeReservations(ctx) {
 
 function reservationLabel(res) {
   return 'Забито: ' + String((res && res.name) || 'кто-то');
+}
+
+// Админ не должен знать, кто именно забронировал, но должен видеть сам факт.
+function isReservedForAdmin(item, ctx) {
+  const c = ctx || {};
+  if (!c.isAdmin) return false;
+  return (c.reservedIds || []).indexOf(item.id) !== -1;
 }
 
 async function reserveItem(itemId, user) {
@@ -653,7 +1086,10 @@ function renderReserve(item, ctx) {
 }
 
 function renderCard(item, ctx) {
-  const card = el('article', { class: 'card' });
+  const cls = ['card'];
+  if (isReservedForAdmin(item, ctx)) cls.push('card-reserved');
+  if (Number(item.rating) === 5) cls.push('card-hot');
+  const card = el('article', { class: cls.join(' ') });
   const media = el('div', { class: 'card-media' });
   if (item.image_url) {
     media.appendChild(el('img', { class: 'card-img', src: item.image_url, alt: cardTitle(item), loading: 'lazy' }));
@@ -674,6 +1110,9 @@ function renderCard(item, ctx) {
   const tags = el('div', { class: 'card-tags' });
   tags.appendChild(statusBadge(item));
   if (item.category) tags.appendChild(el('span', { class: 'tag', text: item.category }));
+  if (isReservedForAdmin(item, ctx)) {
+    tags.appendChild(el('span', { class: 'badge badge-reserved', text: 'Забронировано' }));
+  }
   body.appendChild(tags);
 
   if (item.note) body.appendChild(el('p', { class: 'note', text: item.note }));
@@ -746,7 +1185,13 @@ function renderList(container, items, ctx) {
     container.appendChild(emptyState());
     return;
   }
-  filtered.forEach((it) => container.appendChild(renderCard(it, c)));
+  filtered.forEach((it, i) => {
+    const card = renderCard(it, c);
+    // Каскадное появление: каждая следующая карточка чуть позже.
+    card.style.animationDelay = Math.min(i * 45, 450) + 'ms';
+    container.appendChild(card);
+    attachTilt(card);
+  });
 }
 
 /* ===== Состояние приложения и отрисовка ===== */
@@ -759,6 +1204,7 @@ const app = {
   // значение пересчитывается из profiles.is_admin (Задачи 6–7).
   isAdmin: true,
   reservations: [],
+  reservedIds: [],
 };
 
 function updateAdminUi() {
@@ -772,7 +1218,11 @@ function renderAuthUi() {
   slot.innerHTML = '';
   if (!useSupabase(SUPABASE_CONFIG)) return;
   if (app.user) {
-    slot.appendChild(el('span', { class: 'auth-user', text: app.user.name || 'вы вошли' }));
+    const name = app.user.name || 'вы вошли';
+    const chip = el('span', { class: 'auth-user', title: name });
+    chip.appendChild(el('span', { class: 'auth-avatar', text: String(name).slice(0, 1) }));
+    chip.appendChild(el('span', { class: 'auth-name', text: name }));
+    slot.appendChild(chip);
     const out = el('button', { class: 'btn', type: 'button', text: 'Выйти' });
     out.addEventListener('click', () => signOut());
     slot.appendChild(out);
@@ -821,15 +1271,30 @@ function drawList() {
   renderList(listEl, app.items, {
     isAdmin: app.isAdmin,
     reservations: app.reservations,
+    reservedIds: app.reservedIds,
     userId: app.user && app.user.id,
     user: app.user,
     filter: app.filter,
   });
+  const sumEl = document.getElementById('summary');
+  if (sumEl) {
+    // Админ знает занятые только по id (без имён), друг — по обычному списку броней.
+    const taken = app.isAdmin
+      ? app.reservedIds
+      : (app.reservations || []).map((r) => r.item_id);
+    sumEl.textContent = summaryText(app.items, taken);
+  }
 }
 
 async function refresh() {
+  // Пока данные идут — показываем скелетоны вместо пустого экрана.
+  const listEl = document.getElementById('list');
+  if (listEl && !app.items.length) renderSkeletons(listEl, 6);
+
   app.items = await app.store.listItems();
   app.reservations = await app.store.listReservations();
+  app.reservedIds =
+    typeof app.store.listReservedIds === 'function' ? (await app.store.listReservedIds()) || [] : [];
   updateAdminUi();
   renderAuthUi();
   const controlsEl = document.getElementById('controls');
@@ -1030,6 +1495,15 @@ function memoryStorage() {
   };
 }
 
+// Собирает весь текст из дерева элементов (для проверок в тестах).
+function textOf(node) {
+  if (!node) return '';
+  if (typeof node === 'string') return node;
+  let out = node.textContent || '';
+  (node.children || []).forEach((c) => { out += ' ' + textOf(c); });
+  return out;
+}
+
 async function runTests() {
   __passed = 0;
   __failed = 0;
@@ -1056,7 +1530,7 @@ async function runTests() {
   assertEqual(readTheme({ 'wishlist.theme': 'light' }), 'light', 'читает сохранённую');
 
   assertEqual(cardTitle({ title: '  X  ' }), 'X', 'trim названия');
-  assertEqual(emptyState().textContent.trim().length > 0, true, 'пустое состояние непустое');
+  assertEqual(textOf(emptyState()).trim().length > 0, true, 'пустое состояние непустое');
   const src = [{ title: 'A', rating: 2, category: 'g' }, { title: 'B', rating: 5, category: 'b' }];
   assertEqual(applyFilters(src, { sort: 'rating' })[0].title, 'B', 'сортировка по звёздам');
   assertEqual(applyFilters(src, { category: 'g' }).length, 1, 'фильтр по категории');
@@ -1106,6 +1580,78 @@ async function runTests() {
   assertEqual(canSeeReservations({ isAdmin: true, user: { id: 'a' } }), false, 'админ не видит брони');
   assertEqual(canSeeReservations({ isAdmin: false, user: null }), false, 'аноним не видит брони');
   assertEqual(canSeeReservations({ isAdmin: false, user: { id: 'b' } }), true, 'друг видит брони');
+
+  // Админ видит факт брони (но не имя)
+  const adminCardFree = renderCard(
+    { id: 'i1', title: 'Свободный' },
+    { isAdmin: true, reservations: [], reservedIds: [] }
+  );
+  assertEqual(textOf(adminCardFree).indexOf('Забронировано') === -1, true, 'админ: свободный айтем без метки');
+  const adminCardTaken = renderCard(
+    { id: 'i2', title: 'Занятый' },
+    { isAdmin: true, reservations: [], reservedIds: ['i2'] }
+  );
+  assertEqual(textOf(adminCardTaken).indexOf('Забронировано') !== -1, true, 'админ видит, что айтем забронирован');
+  assertEqual(textOf(adminCardTaken).indexOf('Забито') === -1, true, 'админ не видит имя бронирующего');
+  const friendCardTaken = renderCard(
+    { id: 'i3', title: 'X' },
+    { isAdmin: false, user: { id: 'u1' }, userId: 'u1', reservations: [{ item_id: 'i3', user_id: 'u2', name: 'Ann' }] }
+  );
+  assertEqual(textOf(friendCardTaken).indexOf('Забито: Ann') !== -1, true, 'друг видит имя брони');
+
+  // Счётчик в шапке
+  assertEqual(summaryText([], []), '', 'пустой список → нет счётчика');
+  assertEqual(summaryText([{ id: 'a' }], []), '1 желание', 'одно желание');
+  assertEqual(summaryText([{ id: 'a' }, { id: 'b' }], []), '2 желания', 'два желания');
+  assertEqual(summaryText([{ id: 'a' }, { id: 'b' }, { id: 'c' }], []), '3 желания', 'три желания');
+  assertEqual(
+    summaryText([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }], []),
+    '5 желаний',
+    'пять желаний'
+  );
+  assertEqual(
+    summaryText([{ id: 'a' }, { id: 'b' }], ['a']),
+    '2 желания · 1 занято',
+    'счётчик учитывает занятые'
+  );
+  assertEqual(
+    summaryText([{ id: 'a' }, { id: 'b' }, { id: 'c' }], ['a', 'b']),
+    '3 желания · 2 занято',
+    'несколько занятых'
+  );
+
+  // Пять звёзд визуально выделяются
+  const hotCard = renderCard({ id: 'h', title: 'Мечта', rating: 5 }, { isAdmin: false });
+  assertEqual(hotCard.className.indexOf('card-hot') !== -1, true, '5 звёзд → карточка выделена');
+  const coolCard = renderCard({ id: 'c', title: 'Так', rating: 3 }, { isAdmin: false });
+  assertEqual(coolCard.className.indexOf('card-hot') === -1, true, '3 звезды → без выделения');
+  assertEqual(renderStars(5).className.indexOf('stars-hot') !== -1, true, '5 звёзд → звёзды подсвечены');
+
+  // Скелетоны при загрузке
+  const skelBox = document.createElement('div');
+  renderSkeletons(skelBox, 3);
+  assertEqual(skelBox.children.length, 3, 'скелетоны: три заглушки');
+  assertEqual(skelBox.children[0].className.indexOf('skeleton-card') !== -1, true, 'скелетон: класс карточки');
+  assertEqual(skelBox.children[0].children.length >= 2, true, 'скелетон: есть блоки картинки и текста');
+
+  // Пустое состояние с SVG
+  const empty = emptyState();
+  assertEqual(empty.className.indexOf('empty') !== -1, true, 'пустое состояние: класс empty');
+  assertEqual(empty.children[0].innerHTML.indexOf('<svg') !== -1, true, 'пустое состояние: SVG-иллюстрация');
+  assertEqual(textOf(empty).indexOf('пусто') !== -1, true, 'пустое состояние: есть текст');
+
+  // 3D-наклон карточки
+  const tiltCard = el('article', { class: 'card' });
+  assertEqual(typeof attachTilt, 'function', 'attachTilt определён');
+  attachTilt(tiltCard);
+  assertEqual(tiltCard.className.indexOf('card-tilt') !== -1, true, 'карточка помечена как наклоняемая');
+  assertEqual(typeof tiltCard._tiltHandlers === 'object', true, 'обработчики наклона навешены');
+  // Наклон считается из позиции курсора
+  assertEqual(tiltAngles(0, 0, 100, 100).rx > 0, true, 'верхний левый угол → наклон по X');
+  assertEqual(tiltAngles(50, 50, 100, 100).rx, 0, 'центр → без наклона по X');
+  assertEqual(tiltAngles(50, 50, 100, 100).ry, 0, 'центр → без наклона по Y');
+  assertEqual(tiltAngles(100, 50, 100, 100).ry > 0, true, 'правый край → наклон по Y');
+  assertEqual(tiltAngles(50, 50, 0, 0).rx, 0, 'нулевой размер → без наклона');
   assertEqual(reservationLabel({ name: 'Ann' }), 'Забито: Ann', 'метка брони');
   const s2 = new LocalStore(memoryStorage());
   await s2.setReservation('i1', 'u1', 'Ann');
@@ -1198,7 +1744,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     const tt = document.getElementById('theme-toggle');
-    if (tt) tt.addEventListener('click', toggleTheme);
+    if (tt) tt.addEventListener('click', () => toggleTheme(tt));
     const addBtn = document.getElementById('add-btn');
     if (addBtn) addBtn.addEventListener('click', () => openItemForm(null));
     initSupabase();

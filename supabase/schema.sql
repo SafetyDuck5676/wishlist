@@ -73,6 +73,19 @@ drop policy if exists reservations_delete on reservations;
 create policy reservations_delete on reservations for delete
   using (auth.uid() = user_id);
 
+-- Админ не должен знать, КТО забронировал (сюрприз), но должен видеть, ЧТО занято.
+-- security definer обходит RLS, поэтому возвращаем только id и только админу.
+create or replace function public.reserved_item_ids()
+returns setof uuid
+language sql
+security definer
+stable
+as $$
+  select r.item_id from public.reservations r where public.is_admin();
+$$;
+
+grant execute on function public.reserved_item_ids() to anon, authenticated;
+
 -- profiles: пользователь видит свой профиль; админ видит и меняет все
 drop policy if exists profiles_select on profiles;
 create policy profiles_select on profiles for select
