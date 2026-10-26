@@ -279,7 +279,10 @@
   .image-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .hidden-file { display: none; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-  .card-actions { display: flex; gap: 8px; margin-top: 4px; }
+  /* Кнопки в карточке: переносим, иначе третья («Уже подарили») вылезает за край */
+  .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .card-actions .btn { white-space: nowrap; }
+  .card-actions .btn-gifted { flex: 1 1 100%; }
   .btn-sm { padding: 5px 10px; font-size: 0.8rem; border-radius: 8px; }
   .btn-danger { color: var(--danger); border-color: var(--danger); }
   .btn-danger:hover { background: var(--danger); color: #fff; }
@@ -1258,7 +1261,7 @@ async function setGifted(itemId, gifted) {
 
 function renderGiftedToggle(item) {
   const btn = el('button', {
-    class: 'btn btn-sm' + (item.gifted ? '' : ' btn-primary'),
+    class: 'btn btn-sm btn-gifted' + (item.gifted ? '' : ' btn-primary'),
     type: 'button',
     text: item.gifted ? 'Вернуть в список' : 'Уже подарили',
   });
@@ -2038,6 +2041,11 @@ async function runTests() {
   const plainCard = renderCard({ id: 'g4', title: 'P' }, { isAdmin: true });
   assertEqual(textOf(plainCard).indexOf('Уже подарили') !== -1, true, 'обычный: можно отметить подаренным');
   assertEqual(findByClass(plainCard, 'badge-gifted'), null, 'обычный: метки нет');
+  // Кнопка «подарено» помечена классом, чтобы растянуться на свою строку
+  // и не выталкивать «Изменить»/«Удалить» за край карточки.
+  const giftedBtn = findByClass(plainCard, 'btn-gifted');
+  assertEqual(giftedBtn !== null, true, 'обычный: у кнопки есть класс btn-gifted');
+  assertEqual(textOf(giftedBtn), 'Уже подарили', 'обычный: класс на нужной кнопке');
 
   const guestCard = renderCard({ id: 'g5', title: 'P' }, { isAdmin: false });
   assertEqual(textOf(guestCard).indexOf('Уже подарили') === -1, true, 'гость: отметки нет');
