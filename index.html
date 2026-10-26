@@ -131,7 +131,8 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
-  .card-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  /* Тянем тело карточки на всю высоту: кнопки в соседних карточках встают на одну линию */
+  .card-body { padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
   .card-title { margin: 0; font-size: 1rem; line-height: 1.3; }
   .card-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 0.95rem; }
   .price { font-weight: 700; color: var(--accent); }
@@ -279,8 +280,9 @@
   .image-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .hidden-file { display: none; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-  /* Кнопки в карточке: переносим, иначе третья («Уже подарили») вылезает за край */
-  .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  /* Кнопки в карточке: переносим, иначе третья («Уже подарили») вылезает за край.
+     Прижаты к низу карточки, чтобы не «скакать» по высоте от текста к тексту. */
+  .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 4px; }
   .card-actions .btn { white-space: nowrap; }
   .card-actions .btn-gifted { flex: 1 1 100%; }
   .btn-sm { padding: 5px 10px; font-size: 0.8rem; border-radius: 8px; }
@@ -311,7 +313,7 @@
   }
   .auth-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .auth-note { color: var(--danger); font-size: 0.78rem; max-width: 260px; line-height: 1.3; }
-  .reserve { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .reserve { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
   .reserve-label { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
 
   /* ===== Визуальный слой: свечение, анимации, микровзаимодействия ===== */
