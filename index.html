@@ -401,6 +401,20 @@
     box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4), 0 10px 30px rgba(96, 165, 250, 0.2);
   }
 
+  /* Подаренный айтем: приглушаем, чтобы не путался с актуальными желаниями */
+  .card-gifted { border-color: rgba(74, 222, 128, 0.42); opacity: 0.82; }
+  .card-gifted:hover { opacity: 1; border-color: rgba(74, 222, 128, 0.7); }
+  .card-gifted .card-media img { filter: saturate(0.75); }
+  .badge-gifted {
+    background: rgba(74, 222, 128, 0.14);
+    border-color: rgba(74, 222, 128, 0.5);
+    color: #4ade80;
+  }
+  .badge-gifted::before {
+    content: "✓";
+    margin-right: 4px;
+  }
+
   /* 5 звёзд: неоновая переливающаяся рамка + пульсация свечения */
   @keyframes neon-flow {
     0% { background-position: 0% 50%; }
@@ -477,10 +491,11 @@
   /* ===== Раскрытие карточки ===== */
   .card { cursor: pointer; }
   .view {
-    max-width: 640px;
+    max-width: 900px;
     position: relative;
     padding: 0;
     overflow: hidden;
+    margin: auto; /* центрируем по вертикали, не обрезая высокое содержимое */
   }
   .view-close {
     position: absolute;
@@ -502,38 +517,67 @@
     transition: background 0.2s var(--ease), transform 0.15s var(--ease);
   }
   .view-close:hover { background: var(--danger); transform: rotate(90deg); }
+  .view-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+  /* Картинка сохраняет свои пропорции: без фиксированного aspect-ratio и обрезки */
   .view-media {
-    aspect-ratio: 16 / 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 180px;
+    padding: 18px;
     background: var(--panel-2);
-    overflow: hidden;
+    border-bottom: 1px solid var(--border);
   }
-  .view-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .view-img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 52vh;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+  .view-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    padding: 20px 22px 22px;
+  }
   .view-title {
     margin: 0;
-    padding: 18px 22px 0;
+    padding-right: 44px; /* не заезжаем под кнопку закрытия */
     font-size: 1.3rem;
     line-height: 1.3;
+    overflow-wrap: anywhere;
   }
   .view-meta {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     align-items: baseline;
-    padding: 8px 22px 0;
     font-size: 1.05rem;
   }
-  .view > .stars { padding: 10px 22px 0; font-size: 1.2rem; }
-  .view > .card-tags { padding: 12px 22px 0; }
+  .view-info .stars { font-size: 1.2rem; }
+  .view-info .card-tags { padding: 2px 0 0; }
   .view-note {
     margin: 0;
-    padding: 14px 22px 0;
     font-size: 0.95rem;
     line-height: 1.55;
     white-space: pre-wrap;
     color: var(--text);
     opacity: 0.92;
   }
-  .view-link { margin: 16px 22px 0; display: inline-block; text-decoration: none; }
-  .view > .reserve { margin: 16px 22px 22px; }
+  .view-link { margin-top: 6px; display: inline-block; text-decoration: none; }
+  .view-info .reserve { margin-top: 6px; width: 100%; }
+  @media (min-width: 720px) {
+    .view-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+    .view-grid.single { grid-template-columns: minmax(0, 1fr); }
+    .view-media { border-bottom: 0; border-right: 1px solid var(--border); }
+    .view-info { padding: 22px; }
+  }
   .badge-reserved::before {
     content: "";
     width: 6px;
@@ -664,6 +708,8 @@ function normalizeItem(raw) {
     rating,
     note: str(src.note),
     category: str(src.category),
+    // Подарок уже вручён: остаётся в списке как память, но бронировать его больше не нужно.
+    gifted: src.gifted === true || src.gifted === 'true',
     created_at: src.created_at || new Date().toISOString(),
   };
 }
@@ -767,7 +813,13 @@ class SupabaseStore {
   }
   async saveItem(item) {
     const norm = normalizeItem(item);
-    const { error } = await this.client.from('items').upsert(norm);
+    let { error } = await this.client.from('items').upsert(norm);
+    // Колонки gifted может ещё не быть (не выполнен patch-02): не ломаем сохранение айтемов.
+    if (error && !norm.gifted && /gifted/i.test(String(error.message || ''))) {
+      const payload = Object.assign({}, norm);
+      delete payload.gifted;
+      ({ error } = await this.client.from('items').upsert(payload));
+    }
     if (error) throw error;
     return norm;
   }
@@ -998,13 +1050,17 @@ function pluralWishes(n) {
   return 'желаний';
 }
 
-// «12 желаний · 3 занято» — сколько всего и сколько уже забронировано.
+// «12 желаний · 3 занято · 2 подарено» — сколько всего, забронировано и уже вручено.
 function summaryText(items, reservedIds) {
-  const total = (items || []).length;
+  const list = items || [];
+  const total = list.length;
   if (!total) return '';
   const taken = (reservedIds || []).length;
-  const base = total + ' ' + pluralWishes(total);
-  return taken ? base + ' · ' + taken + ' занято' : base;
+  const gifted = list.filter((i) => i && i.gifted).length;
+  let out = total + ' ' + pluralWishes(total);
+  if (taken) out += ' · ' + taken + ' занято';
+  if (gifted) out += ' · ' + gifted + ' подарено';
+  return out;
 }
 
 // Клик по звезде i ставит оценку i; клик по уже выбранной — сбрасывает в 0.
@@ -1179,6 +1235,37 @@ function isReservedForAdmin(item, ctx) {
   return (c.reservedIds || []).indexOf(item.id) !== -1;
 }
 
+function reservedBadge() {
+  return el('span', { class: 'badge badge-reserved', text: 'Забронировано' });
+}
+
+function giftedBadge() {
+  return el('span', { class: 'badge badge-gifted', text: 'Подарено' });
+}
+
+// Отметка «подарено» — только для владельца списка (админа).
+async function setGifted(itemId, gifted) {
+  const item = (app.items || []).find((i) => i.id === itemId);
+  if (!item) return;
+  try {
+    await app.store.saveItem(Object.assign({}, item, { gifted: !!gifted }));
+  } catch (e) {
+    /* состояние перечитаем в любом случае */
+  }
+  closeModal();
+  await refresh();
+}
+
+function renderGiftedToggle(item) {
+  const btn = el('button', {
+    class: 'btn btn-sm' + (item.gifted ? '' : ' btn-primary'),
+    type: 'button',
+    text: item.gifted ? 'Вернуть в список' : 'Уже подарили',
+  });
+  btn.addEventListener('click', () => setGifted(item.id, !item.gifted));
+  return btn;
+}
+
 async function reserveItem(itemId, user) {
   try {
     await app.store.setReservation(itemId, user && user.id, (user && user.name) || '');
@@ -1201,6 +1288,8 @@ async function cancelReservation(itemId) {
 
 function renderReserve(item, ctx) {
   if (!canSeeReservations(ctx)) return null;
+  // Подарок уже вручён — бронировать нечего.
+  if (item.gifted) return null;
   const box = el('div', { class: 'reserve' });
   const res = (ctx.reservations || []).find((r) => r.item_id === item.id);
   if (res) {
@@ -1220,7 +1309,8 @@ function renderReserve(item, ctx) {
 
 function renderCard(item, ctx) {
   const cls = ['card'];
-  if (isReservedForAdmin(item, ctx)) cls.push('card-reserved');
+  if (item.gifted) cls.push('card-gifted');
+  else if (isReservedForAdmin(item, ctx)) cls.push('card-reserved');
   if (Number(item.rating) === 5) cls.push('card-hot');
   else if (Number(item.rating) === 4) cls.push('card-warm');
   const card = el('article', { class: cls.join(' ') });
@@ -1254,9 +1344,8 @@ function renderCard(item, ctx) {
   const tags = el('div', { class: 'card-tags' });
   tags.appendChild(statusBadge(item));
   if (item.category) tags.appendChild(el('span', { class: 'tag', text: item.category }));
-  if (isReservedForAdmin(item, ctx)) {
-    tags.appendChild(el('span', { class: 'badge badge-reserved', text: 'Забронировано' }));
-  }
+  if (item.gifted) tags.appendChild(giftedBadge());
+  else if (isReservedForAdmin(item, ctx)) tags.appendChild(reservedBadge());
   body.appendChild(tags);
 
   if (item.note) body.appendChild(el('p', { class: 'note', text: item.note }));
@@ -1275,7 +1364,7 @@ function renderCard(item, ctx) {
       }
       await refresh();
     });
-    actions.append(editBtn, delBtn);
+    actions.append(editBtn, delBtn, renderGiftedToggle(item));
     body.appendChild(actions);
   }
 
@@ -1525,39 +1614,45 @@ function openItemView(item, ctx) {
   close.addEventListener('click', closeModal);
   panel.appendChild(close);
 
+  const grid = el('div', { class: it.image_url ? 'view-grid' : 'view-grid single' });
+
   if (it.image_url) {
     const media = el('div', { class: 'view-media' });
     media.appendChild(el('img', { class: 'view-img', src: it.image_url, alt: cardTitle(it) }));
-    panel.appendChild(media);
+    grid.appendChild(media);
   }
 
-  panel.appendChild(el('h2', { class: 'view-title', text: cardTitle(it) || 'Без названия' }));
+  const info = el('div', { class: 'view-info' });
+  info.appendChild(el('h2', { class: 'view-title', text: cardTitle(it) || 'Без названия' }));
 
   const meta = el('div', { class: 'view-meta' });
   if (it.price) meta.appendChild(el('span', { class: 'price', text: formatPrice(it.price) }));
   if (it.store) meta.appendChild(el('span', { class: 'store', text: it.store }));
-  if (meta.children.length) panel.appendChild(meta);
+  if (meta.children.length) info.appendChild(meta);
 
-  const stars = renderStars(it.rating);
-  panel.appendChild(stars);
+  info.appendChild(renderStars(it.rating));
 
   const tags = el('div', { class: 'card-tags' });
   tags.appendChild(statusBadge(it));
   if (it.category) tags.appendChild(el('span', { class: 'tag', text: it.category }));
-  if (isReservedForAdmin(it, c)) {
-    tags.appendChild(el('span', { class: 'badge badge-reserved', text: 'Забронировано' }));
-  }
-  panel.appendChild(tags);
+  if (it.gifted) tags.appendChild(giftedBadge());
+  else if (isReservedForAdmin(it, c)) tags.appendChild(reservedBadge());
+  info.appendChild(tags);
 
-  if (it.note) panel.appendChild(el('p', { class: 'view-note', text: it.note }));
+  if (it.note) info.appendChild(el('p', { class: 'view-note', text: it.note }));
   if (it.url) {
-    panel.appendChild(
+    info.appendChild(
       el('a', { class: 'btn btn-primary view-link', href: it.url, target: '_blank', rel: 'noopener', text: 'Открыть в магазине' })
     );
   }
 
+  if (c.isAdmin) info.appendChild(renderGiftedToggle(it));
+
   const reserveBox = renderReserve(it, c);
-  if (reserveBox) panel.appendChild(reserveBox);
+  if (reserveBox) info.appendChild(reserveBox);
+
+  grid.appendChild(info);
+  panel.appendChild(grid);
 
   overlay.appendChild(panel);
   // Клик по фону закрывает просмотр (это не форма — вводить нечего).
@@ -1711,6 +1806,17 @@ function textOf(node) {
   let out = node.textContent || '';
   (node.children || []).forEach((c) => { out += ' ' + textOf(c); });
   return out;
+}
+
+// Ищет первый элемент с классом cls в дереве (для проверок структуры).
+function findByClass(node, cls) {
+  if (!node || typeof node === 'string') return null;
+  if (String(node.className || '').split(/\s+/).indexOf(cls) !== -1) return node;
+  for (const child of node.children || []) {
+    const hit = findByClass(child, cls);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 async function runTests() {
@@ -1886,6 +1992,71 @@ async function runTests() {
   assertEqual(textOf(viewRoot).indexOf('1000 ₽') !== -1, true, 'раскрытие: цена в рублях');
   closeModal();
   assertEqual(viewRoot.children.length, 0, 'раскрытие: закрывается');
+
+  // Раскрытие: картинка и текст в отдельных блоках (иначе высокая картинка обрезается)
+  viewRoot.innerHTML = '';
+  openItemView({ id: 'v2', title: 'С картинкой', image_url: 'https://x/y.png', note: 'n' });
+  const viewPanel = viewRoot.children[0].children[0];
+  const viewGrid = findByClass(viewPanel, 'view-grid');
+  assertEqual(viewGrid !== null, true, 'просмотр: есть сетка');
+  assertEqual(findByClass(viewGrid, 'view-media') !== null, true, 'просмотр: блок картинки');
+  assertEqual(findByClass(viewGrid, 'view-info') !== null, true, 'просмотр: блок описания');
+  const viewInfo = findByClass(viewGrid, 'view-info');
+  assertEqual(textOf(viewInfo).indexOf('С картинкой') !== -1, true, 'просмотр: текст в блоке описания');
+  assertEqual(findByClass(viewInfo, 'view-img'), null, 'просмотр: картинка не в блоке описания');
+  closeModal();
+
+  // Без картинки блок описания занимает всё окно
+  viewRoot.innerHTML = '';
+  openItemView({ id: 'v3', title: 'Без фото' });
+  const noImgGrid = findByClass(viewRoot.children[0].children[0], 'view-grid');
+  assertEqual(findByClass(noImgGrid, 'view-media'), null, 'просмотр: без картинки нет блока картинки');
+  assertEqual(findByClass(noImgGrid, 'view-info') !== null, true, 'просмотр: без картинки описание на месте');
+  closeModal();
+
+  // Подаренные подарки
+  assertEqual(normalizeItem({ id: 'g1', gifted: true }).gifted, true, 'подарено: true читается');
+  assertEqual(normalizeItem({ id: 'g2' }).gifted, false, 'подарено: по умолчанию false');
+  assertEqual(
+    summaryText([{ id: 'a', gifted: true }, { id: 'b' }], []),
+    '2 желания · 1 подарено',
+    'счётчик: подарено'
+  );
+  assertEqual(
+    summaryText([{ id: 'a', gifted: true }], ['b']),
+    '1 желание · 1 занято · 1 подарено',
+    'счётчик: занято и подарено вместе'
+  );
+
+  const giftedCard = renderCard({ id: 'g3', title: 'G', gifted: true }, { isAdmin: true });
+  assertEqual(findByClass(giftedCard, 'badge-gifted') !== null, true, 'подаренный: метка на карточке');
+  assertEqual(textOf(giftedCard).indexOf('Подарено') !== -1, true, 'подаренный: текст метки');
+  assertEqual(giftedCard.className.indexOf('card-gifted') !== -1, true, 'подаренный: класс карточки');
+  assertEqual(textOf(giftedCard).indexOf('Уже подарили') === -1, true, 'подаренный: кнопка «вернуть»');
+  assertEqual(textOf(giftedCard).indexOf('Вернуть в список') !== -1, true, 'подаренный: текст возврата');
+
+  const plainCard = renderCard({ id: 'g4', title: 'P' }, { isAdmin: true });
+  assertEqual(textOf(plainCard).indexOf('Уже подарили') !== -1, true, 'обычный: можно отметить подаренным');
+  assertEqual(findByClass(plainCard, 'badge-gifted'), null, 'обычный: метки нет');
+
+  const guestCard = renderCard({ id: 'g5', title: 'P' }, { isAdmin: false });
+  assertEqual(textOf(guestCard).indexOf('Уже подарили') === -1, true, 'гость: отметки нет');
+  assertEqual(
+    renderReserve({ id: 'g6', gifted: true }, { user: { id: 'u1' } }),
+    null,
+    'подаренный: бронь не предлагается'
+  );
+
+  const gs = new LocalStore(memoryStorage());
+  await gs.saveItem({ id: 'g7', title: 'Gift', gifted: true });
+  assertEqual((await gs.listItems())[0].gifted, true, 'подарено: сохраняется в хранилище');
+
+  // В просмотре подаренного — метка и кнопка возврата
+  viewRoot.innerHTML = '';
+  openItemView({ id: 'g8', title: 'Подарок', gifted: true }, { isAdmin: true });
+  assertEqual(textOf(viewRoot).indexOf('Подарено') !== -1, true, 'просмотр: метка «Подарено»');
+  assertEqual(textOf(viewRoot).indexOf('Вернуть в список') !== -1, true, 'просмотр: кнопка возврата');
+  closeModal();
 
   // Уровни свечения: 5 ярче 4
   assertEqual(renderCard({ id: 'a', title: 'A', rating: 5 }, {}).className.indexOf('card-hot') !== -1, true, '5 → card-hot');

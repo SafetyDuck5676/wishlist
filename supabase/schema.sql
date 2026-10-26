@@ -10,6 +10,7 @@ create table if not exists items (
   rating smallint default 0 check (rating between 0 and 5),
   note text,
   category text,
+  gifted boolean not null default false,
   created_at timestamptz default now()
 );
 
