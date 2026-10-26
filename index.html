@@ -401,17 +401,139 @@
     box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4), 0 10px 30px rgba(96, 165, 250, 0.2);
   }
 
-  /* «Очень хочу» (5 звёзд): тёплое свечение, чтобы главное было видно сразу */
-  @keyframes hot-glow {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.30), 0 8px 26px rgba(245, 166, 35, 0.12); }
-    50% { box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.55), 0 10px 34px rgba(245, 166, 35, 0.26); }
+  /* 5 звёзд: неоновая переливающаяся рамка + пульсация свечения */
+  @keyframes neon-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
   }
-  .card-hot { border-color: rgba(245, 166, 35, 0.55); animation: card-in 0.45s var(--ease) both, hot-glow 3.6s ease-in-out infinite; }
+  @keyframes neon-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+  .card-hot {
+    position: relative;
+    border-color: transparent;
+    background-image:
+      linear-gradient(var(--panel), var(--panel)),
+      linear-gradient(120deg, #f5a623, #ff6ec7, #6ea8ff, #f5a623);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    background-size: 100% 100%, 300% 300%;
+    animation: card-in 0.45s var(--ease) both, neon-flow 6s ease-in-out infinite;
+  }
+  .card-hot::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 14px;
+    pointer-events: none;
+    box-shadow:
+      0 0 18px rgba(245, 166, 35, 0.45),
+      0 0 42px rgba(255, 110, 199, 0.22);
+    animation: neon-pulse 3.4s ease-in-out infinite;
+  }
+  .card-hot:hover::after {
+    box-shadow:
+      0 0 24px rgba(245, 166, 35, 0.65),
+      0 0 60px rgba(255, 110, 199, 0.35);
+  }
   .card-hot:hover {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.65), 0 14px 40px rgba(245, 166, 35, 0.32);
+    border-color: transparent;
+    box-shadow: 0 14px 44px rgba(245, 166, 35, 0.3);
+  }
+  .card-hot .card-title {
+    background: linear-gradient(92deg, var(--text), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .stars-hot { color: var(--accent); text-shadow: 0 0 10px rgba(245, 166, 35, 0.55); }
+  .stars-hot .star.on {
+    animation: star-twinkle 2.6s ease-in-out infinite;
+  }
+  .stars-hot .star.on:nth-child(2) { animation-delay: 0.18s; }
+  .stars-hot .star.on:nth-child(3) { animation-delay: 0.36s; }
+  .stars-hot .star.on:nth-child(4) { animation-delay: 0.54s; }
+  .stars-hot .star.on:nth-child(5) { animation-delay: 0.72s; }
+  @keyframes star-twinkle {
+    0%, 100% { text-shadow: 0 0 8px rgba(245, 166, 35, 0.5); }
+    50% { text-shadow: 0 0 16px rgba(245, 166, 35, 0.95), 0 0 26px rgba(255, 110, 199, 0.45); }
+  }
+
+  /* 4 звезды: заметно, но сдержаннее — ровное тёплое свечение без перелива */
+  .card-warm {
+    border-color: rgba(245, 166, 35, 0.42);
+    box-shadow: 0 6px 22px rgba(245, 166, 35, 0.14);
+    transition: box-shadow 0.3s var(--ease), border-color 0.25s var(--ease),
+      transform 0.25s var(--ease);
+  }
+  .card-warm:hover {
+    border-color: rgba(245, 166, 35, 0.75);
+    box-shadow: 0 10px 30px rgba(245, 166, 35, 0.26);
+  }
+  .card-warm .stars { color: var(--accent); text-shadow: 0 0 6px rgba(245, 166, 35, 0.35); }
+
+  /* ===== Раскрытие карточки ===== */
+  .card { cursor: pointer; }
+  .view {
+    max-width: 640px;
+    position: relative;
+    padding: 0;
+    overflow: hidden;
+  }
+  .view-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    font-size: 1.35rem;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text);
+    background: rgba(14, 17, 22, 0.6);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+    transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+  }
+  .view-close:hover { background: var(--danger); transform: rotate(90deg); }
+  .view-media {
+    aspect-ratio: 16 / 10;
+    background: var(--panel-2);
+    overflow: hidden;
+  }
+  .view-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .view-title {
+    margin: 0;
+    padding: 18px 22px 0;
+    font-size: 1.3rem;
+    line-height: 1.3;
+  }
+  .view-meta {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 22px 0;
+    font-size: 1.05rem;
+  }
+  .view > .stars { padding: 10px 22px 0; font-size: 1.2rem; }
+  .view > .card-tags { padding: 12px 22px 0; }
+  .view-note {
+    margin: 0;
+    padding: 14px 22px 0;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    color: var(--text);
+    opacity: 0.92;
+  }
+  .view-link { margin: 16px 22px 0; display: inline-block; text-decoration: none; }
+  .view > .reserve { margin: 16px 22px 22px; }
   .badge-reserved::before {
     content: "";
     width: 6px;
@@ -510,9 +632,20 @@ const SUPABASE_CONFIG = {
 function statusFromRating(rating) {
   const r = Math.max(0, Math.min(5, parseInt(rating, 10) || 0));
   if (r === 5) return 'очень хочу';
-  if (r >= 3) return 'хочу';
+  if (r === 4) return 'сильно хочу';
+  if (r === 3) return 'хочу';
   if (r >= 1) return 'если что';
   return 'без оценки';
+}
+
+// Уникальные категории из уже добавленных айтемов — чтобы не печатать заново.
+function categoryOptions(items) {
+  const set = new Set();
+  (items || []).forEach((i) => {
+    const c = i && i.category ? String(i.category).trim() : '';
+    if (c) set.add(c);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
 function normalizeItem(raw) {
@@ -1089,7 +1222,18 @@ function renderCard(item, ctx) {
   const cls = ['card'];
   if (isReservedForAdmin(item, ctx)) cls.push('card-reserved');
   if (Number(item.rating) === 5) cls.push('card-hot');
+  else if (Number(item.rating) === 4) cls.push('card-warm');
   const card = el('article', { class: cls.join(' ') });
+
+  // Клик по карточке раскрывает её крупно. Кнопки и ссылки внутри не перехватываем.
+  const openView = (e) => {
+    const t = e && e.target;
+    const tag = t && t.tagName ? String(t.tagName).toLowerCase() : '';
+    if (tag === 'button' || tag === 'a' || tag === 'input') return;
+    openItemView(item, ctx);
+  };
+  card.addEventListener('click', openView);
+
   const media = el('div', { class: 'card-media' });
   if (item.image_url) {
     media.appendChild(el('img', { class: 'card-img', src: item.image_url, alt: cardTitle(item), loading: 'lazy' }));
@@ -1342,13 +1486,21 @@ async function parseLink(url) {
 }
 
 /* ===== Форма айтема ===== */
-function fieldRow(labelText, value, type) {
+function fieldRow(labelText, value, type, options) {
   const wrap = el('label', { class: 'field' });
   wrap.appendChild(el('span', { class: 'field-label', text: labelText }));
   const input = el(type === 'textarea' ? 'textarea' : 'input', { class: 'field-input' });
   if (type === 'url') input.setAttribute('type', 'url');
   if (type === 'textarea') input.textContent = value == null ? '' : String(value);
   else input.setAttribute('value', value == null ? '' : String(value));
+  // Список подсказок (datalist) — для категорий из уже добавленных айтемов.
+  if (options && options.length) {
+    const listId = 'opts-' + Math.random().toString(36).slice(2, 9);
+    const dl = el('datalist', { id: listId });
+    options.forEach((o) => dl.appendChild(el('option', { value: o })));
+    input.setAttribute('list', listId);
+    wrap.appendChild(dl);
+  }
   wrap.appendChild(input);
   return { wrap, input };
 }
@@ -1356,6 +1508,63 @@ function fieldRow(labelText, value, type) {
 function closeModal() {
   const root = document.getElementById('modal-root');
   if (root) root.innerHTML = '';
+}
+
+/* ===== Раскрытие карточки: крупный просмотр айтема ===== */
+function openItemView(item, ctx) {
+  const root = document.getElementById('modal-root');
+  if (!root) return;
+  const c = ctx || {};
+  const it = normalizeItem(item || {});
+  root.innerHTML = '';
+
+  const overlay = el('div', { class: 'modal-overlay' });
+  const panel = el('div', { class: 'modal view' });
+
+  const close = el('button', { class: 'view-close', type: 'button', text: '×', 'aria-label': 'Закрыть' });
+  close.addEventListener('click', closeModal);
+  panel.appendChild(close);
+
+  if (it.image_url) {
+    const media = el('div', { class: 'view-media' });
+    media.appendChild(el('img', { class: 'view-img', src: it.image_url, alt: cardTitle(it) }));
+    panel.appendChild(media);
+  }
+
+  panel.appendChild(el('h2', { class: 'view-title', text: cardTitle(it) || 'Без названия' }));
+
+  const meta = el('div', { class: 'view-meta' });
+  if (it.price) meta.appendChild(el('span', { class: 'price', text: formatPrice(it.price) }));
+  if (it.store) meta.appendChild(el('span', { class: 'store', text: it.store }));
+  if (meta.children.length) panel.appendChild(meta);
+
+  const stars = renderStars(it.rating);
+  panel.appendChild(stars);
+
+  const tags = el('div', { class: 'card-tags' });
+  tags.appendChild(statusBadge(it));
+  if (it.category) tags.appendChild(el('span', { class: 'tag', text: it.category }));
+  if (isReservedForAdmin(it, c)) {
+    tags.appendChild(el('span', { class: 'badge badge-reserved', text: 'Забронировано' }));
+  }
+  panel.appendChild(tags);
+
+  if (it.note) panel.appendChild(el('p', { class: 'view-note', text: it.note }));
+  if (it.url) {
+    panel.appendChild(
+      el('a', { class: 'btn btn-primary view-link', href: it.url, target: '_blank', rel: 'noopener', text: 'Открыть в магазине' })
+    );
+  }
+
+  const reserveBox = renderReserve(it, c);
+  if (reserveBox) panel.appendChild(reserveBox);
+
+  overlay.appendChild(panel);
+  // Клик по фону закрывает просмотр (это не форма — вводить нечего).
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+  root.appendChild(overlay);
 }
 
 function openItemForm(item) {
@@ -1417,7 +1626,7 @@ function openItemForm(item) {
 
   const fPrice = fieldRow('Цена, ₽', data.price);
   const fStore = fieldRow('Магазин', data.store);
-  const fCategory = fieldRow('Категория', data.category);
+  const fCategory = fieldRow('Категория', data.category, null, categoryOptions(app.items));
   const ratingPicker = renderStarPicker(data.rating, null);
   const ratingWrap = el('div', { class: 'field' });
   ratingWrap.appendChild(el('span', { class: 'field-label', text: 'Оценка (клик по звезде; повторный клик — сброс)' }));
@@ -1509,6 +1718,7 @@ async function runTests() {
   __failed = 0;
 
   assertEqual(statusFromRating(5), 'очень хочу', '5 звёзд → очень хочу');
+  assertEqual(statusFromRating(4), 'сильно хочу', '4 звезды → сильно хочу');
   assertEqual(statusFromRating(3), 'хочу', '3 звезды → хочу');
   assertEqual(statusFromRating(1), 'если что', '1 звезда → если что');
   assertEqual(statusFromRating(0), 'без оценки', '0 → без оценки');
@@ -1652,6 +1862,35 @@ async function runTests() {
   assertEqual(tiltAngles(50, 50, 100, 100).ry, 0, 'центр → без наклона по Y');
   assertEqual(tiltAngles(100, 50, 100, 100).ry > 0, true, 'правый край → наклон по Y');
   assertEqual(tiltAngles(50, 50, 0, 0).rx, 0, 'нулевой размер → без наклона');
+
+  // Категории из уже добавленных айтемов
+  assertEqual(categoryOptions([]), [], 'нет айтемов → нет категорий');
+  assertEqual(
+    categoryOptions([{ category: 'Техника' }, { category: 'Книги' }, { category: 'Техника' }]),
+    ['Книги', 'Техника'],
+    'категории без дублей, по алфавиту'
+  );
+  assertEqual(
+    categoryOptions([{ category: 'Техника' }, { category: '  ' }, { category: null }, { title: 'x' }]),
+    ['Техника'],
+    'пустые категории отбрасываются'
+  );
+
+  // Раскрытие карточки
+  const viewRoot = document.getElementById('modal-root');
+  viewRoot.innerHTML = '';
+  openItemView({ id: 'v1', title: 'Подарок', rating: 5, price: '1000', note: 'очень надо' });
+  assertEqual(viewRoot.children.length, 1, 'раскрытие: окно открылось');
+  assertEqual(textOf(viewRoot).indexOf('Подарок') !== -1, true, 'раскрытие: название внутри');
+  assertEqual(textOf(viewRoot).indexOf('очень надо') !== -1, true, 'раскрытие: заметка внутри');
+  assertEqual(textOf(viewRoot).indexOf('1000 ₽') !== -1, true, 'раскрытие: цена в рублях');
+  closeModal();
+  assertEqual(viewRoot.children.length, 0, 'раскрытие: закрывается');
+
+  // Уровни свечения: 5 ярче 4
+  assertEqual(renderCard({ id: 'a', title: 'A', rating: 5 }, {}).className.indexOf('card-hot') !== -1, true, '5 → card-hot');
+  assertEqual(renderCard({ id: 'b', title: 'B', rating: 4 }, {}).className.indexOf('card-warm') !== -1, true, '4 → card-warm');
+  assertEqual(renderCard({ id: 'c', title: 'C', rating: 3 }, {}).className.indexOf('card-warm') === -1, true, '3 → без свечения');
   assertEqual(reservationLabel({ name: 'Ann' }), 'Забито: Ann', 'метка брони');
   const s2 = new LocalStore(memoryStorage());
   await s2.setReservation('i1', 'u1', 'Ann');
